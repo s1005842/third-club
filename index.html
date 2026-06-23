@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三分之一俱樂部 🏠</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --pink: #FF6B9D; --pink-light: #FFE4EF; --pink-dark: #CC4477;
+  --mint: #4ECDC4; --mint-light: #E0FAF8; --mint-dark: #2EA89F;
+  --peach: #FF9A6C; --peach-light: #FFF0E8;
+  --lavender: #A78BFA; --lavender-light: #EDE9FE;
+  --yellow: #FCD34D; --yellow-light: #FFFBEB;
+  --green: #34D399; --green-light: #D1FAE5; --green-dark: #059669;
+  --red: #F87171; --red-light: #FEE2E2; --red-dark: #DC2626;
+  --bg: #FFF8FC; --bg2: #FFF0F7; --bg3: #FFE8F5;
+  --text: #2D1B3D; --text2: #7B5EA7; --text3: #B08FCC;
+  --border: rgba(167,139,250,0.2); --border2: rgba(167,139,250,0.35);
+  --radius: 14px; --radius-lg: 20px; --radius-xl: 28px;
+  --shadow: 0 4px 20px rgba(167,139,250,0.15);
+  --shadow-sm: 0 2px 8px rgba(167,139,250,0.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Login ── */
+#login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:1rem; background: linear-gradient(135deg, #FFE8F5 0%, #EDE9FE 50%, #E0FAF8 100%); }
+.login-card { background:#fff; border-radius:var(--radius-xl); padding:2.5rem 2rem; width:100%; max-width:380px; text-align:center; box-shadow: 0 8px 40px rgba(167,139,250,0.25); }
+.login-emoji { font-size:52px; margin-bottom:0.5rem; animation: bounce 2s ease-in-out infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.login-title { font-size:22px; font-weight:700; color:var(--text); margin-bottom:0.25rem; }
+.login-sub { font-size:13px; color:var(--text2); margin-bottom:0.5rem; }
+.login-tagline { font-size:12px; color:var(--text3); margin-bottom:2rem; }
+.google-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:14px; background:var(--lavender); color:#fff; border:none; border-radius:var(--radius); font-size:15px; font-weight:600; cursor:pointer; transition:all 0.2s; box-shadow: 0 4px 15px rgba(167,139,250,0.4); }
+.google-btn:hover { background:var(--pink); transform:translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,157,0.4); }
+.google-btn svg { width:20px; height:20px; }
+.login-note { margin-top:1rem; font-size:12px; color:var(--text3); }
+
+/* ── App ── */
+#app-screen { display:none; min-height:100vh; }
+.topbar { background:#fff; border-bottom: 2px solid var(--border); padding:0 1.25rem; height:58px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow-sm); }
+.topbar-left { display:flex; align-items:center; gap:10px; }
+.topbar-logo { font-size:22px; }
+.topbar-title { font-size:16px; font-weight:700; color:var(--text); }
+.topbar-user { display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 12px; border-radius:var(--radius); background:var(--bg2); transition:all 0.2s; }
+.topbar-user:hover { background:var(--bg3); }
+.user-avatar { width:32px; height:32px; border-radius:50%; object-fit:cover; }
+.user-name { font-size:13px; font-weight:600; color:var(--text); }
+.logout-hint { font-size:11px; color:var(--text3); }
+
+.tabs { background:#fff; border-bottom:2px solid var(--border); display:flex; padding:0 0.75rem; overflow-x:auto; gap:2px; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab { padding:12px 14px; font-size:13px; font-weight:600; color:var(--text2); border:none; background:none; cursor:pointer; white-space:nowrap; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; border-radius:var(--radius) var(--radius) 0 0; }
+.tab.active { color:var(--pink); border-bottom-color:var(--pink); background:var(--pink-light); }
+.tab:hover:not(.active) { background:var(--bg2); color:var(--text); }
+.tab-icon { margin-right:5px; }
+
+.content { padding:1.25rem; max-width:900px; margin:0 auto; }
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* ── Cards ── */
+.card { background:#fff; border:1.5px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem; margin-bottom:1rem; box-shadow:var(--shadow-sm); }
+.card-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:1rem; display:flex; align-items:center; gap:6px; }
+
+/* ── Avatars ── */
+.avatar { border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; overflow:hidden; }
+.avatar img { width:100%; height:100%; object-fit:cover; }
+.av-婷 { background:linear-gradient(135deg,#FFB3D1,#FF6B9D); color:#fff; }
+.av-士 { background:linear-gradient(135deg,#93C5FD,#3B82F6); color:#fff; }
+.av-立 { background:linear-gradient(135deg,#6EE7B7,#10B981); color:#fff; }
+
+/* ── Summary ── */
+.settlement-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:1rem; }
+.member-card { border-radius:var(--radius-lg); padding:1.25rem; position:relative; overflow:hidden; }
+.mc-婷 { background:linear-gradient(135deg,#FFE4EF,#FFF0F7); border:1.5px solid #FFB3D1; }
+.mc-士 { background:linear-gradient(135deg,#EDE9FE,#F5F3FF); border:1.5px solid #C4B5FD; }
+.mc-立 { background:linear-gradient(135deg,#D1FAE5,#ECFDF5); border:1.5px solid #6EE7B7; }
+.mc-header { display:flex; align-items:center; gap:10px; margin-bottom:1rem; }
+.mc-name { font-size:16px; font-weight:700; }
+.mc-role { font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; background:#fff; color:var(--pink); border:1px solid var(--pink); }
+.mc-stat { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-top:1px solid rgba(0,0,0,0.06); }
+.mc-stat .k { color:var(--text2); }
+.mc-stat .v { font-weight:600; }
+.mc-final { margin-top:12px; padding:10px 14px; border-radius:var(--radius); background:#fff; }
+.mc-final .fl { font-size:11px; color:var(--text2); margin-bottom:2px; font-weight:600; letter-spacing:0.03em; }
+.mc-final .fa { font-size:22px; font-weight:700; }
+.mc-final .fd { font-size:12px; margin-top:2px; font-weight:600; }
+.mc-final.pos .fa { color:var(--green-dark); }
+.mc-final.pos .fd { color:var(--green-dark); }
+.mc-final.neg .fa { color:var(--red-dark); }
+.mc-final.neg .fd { color:var(--red-dark); }
+.mc-final.zero .fa { color:var(--text3); }
+.mc-final.zero .fd { color:var(--text3); }
+
+.action-card { background:linear-gradient(135deg,var(--yellow-light),#FFF8E1); border:1.5px solid var(--yellow); border-radius:var(--radius-lg); padding:1.25rem; margin-bottom:1rem; }
+.action-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px dashed rgba(0,0,0,0.1); font-size:14px; }
+.action-arrow { font-size:18px; }
+
+/* ── Forms ── */
+.field { margin-bottom:1rem; }
+.field label { display:block; font-size:13px; color:var(--text2); margin-bottom:5px; font-weight:600; }
+.field input, .field select, .field textarea {
+  width:100%; padding:10px 13px; font-size:14px;
+  border:1.5px solid var(--border2); border-radius:var(--radius);
+  background:var(--bg2); color:var(--text); outline:none; transition:all 0.2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color:var(--lavender); background:#fff; box-shadow: 0 0 0 3px rgba(167,139,250,0.15); }
+.field textarea { min-height:64px; resize:vertical; }
+.r2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.r3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.split-preview { background:var(--bg2); border-radius:var(--radius); padding:1rem; margin-bottom:1rem; border:1.5px solid var(--border); }
+.split-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:13px; }
+.split-row:not(:last-child) { border-bottom:1px dashed var(--border2); }
+.split-member { display:flex; align-items:center; gap:7px; font-weight:600; }
+.split-amt { font-weight:700; color:var(--pink); }
+.validation { font-size:12px; padding:7px 12px; border-radius:var(--radius); margin-top:6px; font-weight:600; }
+.v-ok { background:var(--green-light); color:var(--green-dark); }
+.v-err { background:var(--red-light); color:var(--red-dark); }
+
+/* Receipt upload */
+.upload-area { border:2px dashed var(--border2); border-radius:var(--radius); padding:1.5rem; text-align:center; cursor:pointer; transition:all 0.2s; background:var(--bg2); }
+.upload-area:hover { border-color:var(--lavender); background:var(--lavender-light); }
+.upload-area.has-file { border-color:var(--mint); background:var(--mint-light); }
+.upload-icon { font-size:28px; margin-bottom:6px; }
+.upload-text { font-size:13px; color:var(--text2); font-weight:600; }
+.upload-sub { font-size:11px; color:var(--text3); margin-top:3px; }
+.upload-preview { max-width:100%; max-height:160px; border-radius:var(--radius); margin-top:8px; }
+#receipt-input { display:none; }
+
+/* ── Buttons ── */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:10px 20px; font-size:14px; font-weight:700; border-radius:var(--radius); cursor:pointer; transition:all 0.2s; border:none; }
+.btn-primary { background:linear-gradient(135deg,var(--pink),var(--lavender)); color:#fff; box-shadow: 0 4px 15px rgba(255,107,157,0.35); }
+.btn-primary:hover { transform:translateY(-1px); box-shadow: 0 6px 20px rgba(255,107,157,0.45); }
+.btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+.btn-mint { background:linear-gradient(135deg,var(--mint),#38B2AC); color:#fff; box-shadow: 0 4px 15px rgba(78,205,196,0.35); }
+.btn-mint:hover { transform:translateY(-1px); }
+.btn-ghost { background:var(--bg2); color:var(--text2); border:1.5px solid var(--border2); }
+.btn-ghost:hover { background:var(--bg3); color:var(--text); }
+.btn-sm { padding:6px 12px; font-size:12px; }
+.btn-danger { background:var(--red-light); color:var(--red-dark); border:1.5px solid var(--red); }
+
+/* ── Table ── */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { text-align:left; padding:8px 10px; font-size:11px; font-weight:700; color:var(--text2); border-bottom:2px solid var(--border); text-transform:uppercase; letter-spacing:0.05em; background:var(--bg2); }
+td { padding:9px 10px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--bg2); }
+.tag { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+.tag-avg { background:var(--green-light); color:var(--green-dark); }
+.tag-ratio { background:var(--lavender-light); color:var(--lavender); }
+.tag-custom { background:var(--peach-light); color:var(--peach); }
+.del-btn { background:none; border:none; cursor:pointer; font-size:15px; padding:3px 7px; border-radius:8px; color:var(--text3); transition:all 0.2s; }
+.del-btn:hover { color:var(--red-dark); background:var(--red-light); }
+.del-btn.hidden { display:none; }
+.receipt-thumb { width:32px; height:32px; border-radius:6px; object-fit:cover; cursor:pointer; border:1.5px solid var(--border); transition:transform 0.2s; }
+.receipt-thumb:hover { transform:scale(1.1); }
+.empty { text-align:center; padding:3rem; color:var(--text3); }
+.empty-emoji { font-size:36px; margin-bottom:8px; }
+.empty-text { font-size:14px; font-weight:600; }
+
+/* ── Profile ── */
+.profile-header { display:flex; align-items:center; gap:16px; margin-bottom:1.5rem; padding:1.5rem; background:linear-gradient(135deg,var(--pink-light),var(--lavender-light)); border-radius:var(--radius-lg); }
+.profile-avatar { width:72px; height:72px; border-radius:50%; border:3px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.profile-name { font-size:22px; font-weight:700; }
+.profile-email { font-size:13px; color:var(--text2); margin-top:2px; }
+.profile-role-badge { display:inline-block; margin-top:6px; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:700; background:var(--pink); color:#fff; }
+.monthly-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:1rem; }
+.monthly-item { background:var(--bg2); border:1.5px solid var(--border); border-radius:var(--radius); padding:1rem; }
+.monthly-item .mi-label { font-size:12px; color:var(--text2); font-weight:600; margin-bottom:4px; }
+.monthly-item .mi-amount { font-size:18px; font-weight:700; color:var(--pink); }
+.monthly-item .mi-note { font-size:11px; color:var(--text3); margin-top:2px; }
+.stat-row { display:flex; gap:10px; margin-bottom:1rem; flex-wrap:wrap; }
+.stat-box { flex:1; min-width:120px; padding:1rem; border-radius:var(--radius); text-align:center; }
+.stat-box .sb-val { font-size:20px; font-weight:700; }
+.stat-box .sb-label { font-size:11px; color:var(--text2); margin-top:2px; font-weight:600; }
+.stat-pink { background:var(--pink-light); }
+.stat-pink .sb-val { color:var(--pink-dark); }
+.stat-mint { background:var(--mint-light); }
+.stat-mint .sb-val { color:var(--mint-dark); }
+.stat-lav { background:var(--lavender-light); }
+.stat-lav .sb-val { color:var(--lavender); }
+
+/* ── Decisions ── */
+.cat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:1rem; }
+.cat-card { border-radius:var(--radius-lg); padding:1.25rem; cursor:pointer; transition:all 0.2s; text-align:center; border:2px solid transparent; }
+.cat-card:hover { transform:translateY(-3px); box-shadow:var(--shadow); }
+.cat-card.active { border-color:var(--pink); }
+.cat-emoji { font-size:32px; margin-bottom:8px; }
+.cat-name { font-size:14px; font-weight:700; }
+.cat-count { font-size:11px; margin-top:3px; opacity:0.7; }
+.cat-festival { background:linear-gradient(135deg,#FFF0C8,#FFE4B5); }
+.cat-life { background:linear-gradient(135deg,#E0FAF8,#CCFBF1); }
+.cat-travel { background:linear-gradient(135deg,#EDE9FE,#DDD6FE); }
+.cat-misc { background:linear-gradient(135deg,#FFE4EF,#FECDD3); }
+.decision-list { display:flex; flex-direction:column; gap:8px; }
+.decision-item { background:#fff; border:1.5px solid var(--border); border-radius:var(--radius); padding:1rem; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.di-main { flex:1; }
+.di-title { font-size:14px; font-weight:700; margin-bottom:4px; }
+.di-meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+.di-badge { font-size:11px; padding:2px 8px; border-radius:20px; font-weight:600; }
+.di-month { background:var(--yellow-light); color:#92400E; }
+.di-amount { background:var(--mint-light); color:var(--mint-dark); }
+.di-rule { background:var(--lavender-light); color:var(--lavender); }
+.di-detail { font-size:12px; color:var(--text2); margin-top:4px; }
+.di-actions { display:flex; gap:6px; flex-shrink:0; }
+.edit-form { background:var(--bg2); border-radius:var(--radius); padding:1rem; margin-bottom:1rem; border:1.5px solid var(--border2); }
+.edit-form-title { font-size:14px; font-weight:700; margin-bottom:1rem; color:var(--text); }
+
+/* ── Image Modal ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem; }
+.modal-img { max-width:100%; max-height:90vh; border-radius:var(--radius-lg); }
+.modal-close { position:fixed; top:1rem; right:1rem; background:#fff; border:none; border-radius:50%; width:40px; height:40px; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+/* ── Loading / Toast / Spinner ── */
+.loading { text-align:center; padding:3rem; color:var(--text2); }
+.loading-emoji { font-size:32px; animation:spin 1s linear infinite; display:block; margin-bottom:8px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:12px 20px; border-radius:var(--radius-lg); font-size:14px; font-weight:700; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; box-shadow:var(--shadow); }
+.toast.show { opacity:1; }
+.toast-ok { background:linear-gradient(135deg,var(--mint),var(--green)); color:#fff; }
+.toast-err { background:linear-gradient(135deg,var(--red),#EC4899); color:#fff; }
+.spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-emoji">🏠</div>
+    <div class="login-title">三分之一俱樂部</div>
+    <div class="login-sub">家族帳務共同管理系統</div>
+    <div class="login-tagline">✨ 一起照顧爸媽，記錄每一份心意 ✨</div>
+    <button class="google-btn" onclick="loginWithGoogle()">
+      <svg viewBox="0 0 24 24"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="rgba(255,255,255,0.8)" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="rgba(255,255,255,0.6)" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="rgba(255,255,255,0.9)" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      使用 Google 帳號登入
+    </button>
+    <div class="login-note">僅限千婷、士德、立德使用 🔒</div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">🏠</span>
+      <span class="topbar-title">三分之一俱樂部</span>
+    </div>
+    <div class="topbar-user" onclick="logout()">
+      <img id="topbar-avatar" class="user-avatar" src="" alt="">
+      <div>
+        <div class="user-name" id="topbar-name"></div>
+        <div class="logout-hint">點此登出</div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('summary')"><span class="tab-icon">📊</span>結算總覽</button>
+    <button class="tab" onclick="switchTab('expense')"><span class="tab-icon">➕</span>新增支出</button>
+    <button class="tab" onclick="switchTab('repay')"><span class="tab-icon">💸</span>新增還款</button>
+    <button class="tab" onclick="switchTab('history')"><span class="tab-icon">📋</span>明細記錄</button>
+    <button class="tab" onclick="switchTab('decisions')"><span class="tab-icon">📌</span>俱樂部決議</button>
+    <button class="tab" onclick="switchTab('profile')"><span class="tab-icon">👤</span>個人頁面</button>
+  </div>
+  <div class="content">
+
+    <!-- Summary -->
+    <div id="panel-summary" class="panel active">
+      <div id="summary-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+      <div id="summary-content" style="display:none">
+        <div class="settlement-grid" id="settlementGrid"></div>
+        <div class="action-card" id="actionCard">
+          <div class="card-title">💡 建議清償動作</div>
+          <div id="suggestedActions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expense -->
+    <div id="panel-expense" class="panel">
+      <div class="card">
+        <div class="card-title">➕ 新增支出明細</div>
+        <div class="r2">
+          <div class="field"><label>📅 日期</label><input type="date" id="exp-date"></div>
+          <div class="field"><label>📝 支出名稱</label><input type="text" id="exp-name" placeholder="如：宜蘭民宿、健保費"></div>
+        </div>
+        <div class="r2">
+          <div class="field"><label>💰 總金額（元）</label><input type="number" id="exp-amount" placeholder="0" min="1" oninput="recalcSplit()"></div>
+          <div class="field"><label>👤 代墊者</label>
+            <select id="exp-payer">
+              <option value="">請選擇</option>
+              <option>千婷</option><option>士德</option><option>立德</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>⚖️ 分攤方式</label>
+          <select id="exp-split-type" onchange="onSplitTypeChange()">
+            <option value="">請選擇</option>
+            <option value="avg">平均分攤</option>
+            <option value="ratio">自訂比例</option>
+            <option value="custom">自訂金額</option>
+          </select>
+        </div>
+        <div id="ratio-section" style="display:none;margin-bottom:1rem">
+          <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
+          <div class="r3">
+            <div class="field"><label>千婷</label><input type="number" id="ratio-千婷" placeholder="1" min="0" oninput="recalcSplit()"></div>
+            <div class="field"><label>士德</label><input type="number" id="ratio-士德" placeholder="1" min="0" oninput="recalcSplit()"></div>
+            <div class="field"><label>立德</label><input type="number" id="ratio-立德" placeholder="1" min="0" oninput="recalcSplit()"></div>
+          </div>
+        </div>
+        <div id="custom-section" style="display:none;margin-bottom:1rem">
+          <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
+          <div class="r3">
+            <div class="field"><label>千婷（元）</label><input type="number" id="custom-千婷" placeholder="0" min="0" oninput="recalcSplit()"></div>
+            <div class="field"><label>士德（元）</label><input type="number" id="custom-士德" placeholder="0" min="0" oninput="recalcSplit()"></div>
+            <div class="field"><label>立德（元）</label><input type="number" id="custom-立德" placeholder="0" min="0" oninput="recalcSplit()"></div>
+          </div>
+          <div id="custom-validation" style="display:none" class="validation"></div>
+        </div>
+        <div id="split-preview" class="split-preview" style="display:none">
+          <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 應付金額預覽</div>
+          <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="prev-千婷">—</span></div>
+          <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="prev-士德">—</span></div>
+          <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="prev-立德">—</span></div>
+        </div>
+        <div class="field">
+          <label>🧾 發票／購買證明（選填）</label>
+          <div class="upload-area" id="upload-area" onclick="document.getElementById('receipt-input').click()">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">點擊上傳照片</div>
+            <div class="upload-sub">支援 JPG、PNG，最大 10MB</div>
+          </div>
+          <input type="file" id="receipt-input" accept="image/*" onchange="previewReceipt(this)">
+        </div>
+        <div class="field"><label>📌 備註（選填）</label><textarea id="exp-note" placeholder="補充說明…"></textarea></div>
+        <button class="btn btn-primary" id="exp-save-btn" onclick="saveExpense()">✨ 儲存支出</button>
+      </div>
+    </div>
+
+    <!-- Repay -->
+    <div id="panel-repay" class="panel">
+      <div class="card">
+        <div class="card-title">💸 新增還款紀錄</div>
+        <div class="r2">
+          <div class="field"><label>📅 日期</label><input type="date" id="rep-date"></div>
+          <div class="field"><label>💰 還款金額（元）</label><input type="number" id="rep-amount" placeholder="0" min="1"></div>
+        </div>
+        <div class="r2">
+          <div class="field"><label>👤 付款人（還錢者）</label>
+            <select id="rep-from"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+          </div>
+          <div class="field"><label>👤 收款人（代墊者）</label>
+            <select id="rep-to"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+          </div>
+        </div>
+        <div class="field"><label>📌 備註（選填）</label><textarea id="rep-note" placeholder="補充說明…"></textarea></div>
+        <button class="btn btn-primary" id="rep-save-btn" onclick="saveRepayment()">✨ 儲存還款</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div id="panel-history" class="panel">
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-title">🧾 支出明細</div>
+        <div id="exp-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+        <div id="exp-history-content" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>日期</th><th>名稱</th><th>總額</th><th>代墊</th><th>分攤</th><th>婷</th><th>士</th><th>立</th><th>發票</th><th>備註</th><th></th></tr></thead>
+              <tbody id="exp-table-body"></tbody>
+            </table>
+            <div id="exp-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出紀錄</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💸 還款紀錄</div>
+        <div id="rep-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+        <div id="rep-history-content" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
+              <tbody id="rep-table-body"></tbody>
+            </table>
+            <div id="rep-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無還款紀錄</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decisions -->
+    <div id="panel-decisions" class="panel">
+      <div id="decisions-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+      <div id="decisions-content" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <h2 style="font-size:18px;font-weight:700">📌 俱樂部決議</h2>
+          <button id="add-decision-btn" class="btn btn-mint btn-sm" onclick="showAddDecision()" style="display:none">＋ 新增決議</button>
+        </div>
+        <div id="add-decision-form" class="edit-form" style="display:none">
+          <div class="edit-form-title">新增決議項目</div>
+          <div class="r2">
+            <div class="field"><label>類別</label>
+              <select id="new-category">
+                <option value="節慶與生日">🎉 節慶與生日</option>
+                <option value="生活與健康">💊 生活與健康</option>
+                <option value="家族出遊">✈️ 家族出遊</option>
+                <option value="固定雜項">📦 固定雜項</option>
+              </select>
+            </div>
+            <div class="field"><label>項目名稱</label><input type="text" id="new-title" placeholder="如：過年聚餐"></div>
+          </div>
+          <div class="r3">
+            <div class="field"><label>月份</label><input type="text" id="new-month" placeholder="如：1月、不定期"></div>
+            <div class="field"><label>預估費用</label><input type="text" id="new-amount" placeholder="如：15,000元"></div>
+            <div class="field"><label>分攤原則</label><input type="text" id="new-rule" placeholder="如：AA均分"></div>
+          </div>
+          <div class="field"><label>備註說明</label><textarea id="new-detail" placeholder="細節說明…" style="min-height:48px"></textarea></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveDecision()">儲存</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('add-decision-form').style.display='none'">取消</button>
+          </div>
+        </div>
+        <div class="cat-grid" id="cat-grid"></div>
+        <div id="decision-items"></div>
+      </div>
+    </div>
+
+    <!-- Profile -->
+    <div id="panel-profile" class="panel">
+      <div id="profile-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+      <div id="profile-content" style="display:none">
+        <div class="profile-header">
+          <img id="profile-avatar" class="profile-avatar" src="" alt="">
+          <div>
+            <div class="profile-name" id="profile-name"></div>
+            <div class="profile-email" id="profile-email"></div>
+            <div class="profile-role-badge" id="profile-role"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📅 每月固定應付金額</div>
+          <div class="monthly-grid" id="monthly-grid"></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">* 依俱樂部決議，每月固定分擔金額</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📊 今年度個人統計</div>
+          <div class="stat-row" id="profile-stats"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">💳 我的收支明細</div>
+          <div id="my-history"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Image Modal -->
+<div id="img-modal" class="modal-overlay" style="display:none" onclick="closeModal()">
+  <button class="modal-close" onclick="closeModal()">✕</button>
+  <img id="modal-img" class="modal-img" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const SUPA_URL = 'https://mmtqzrsqfxwfqooemxaa.supabase.co';
+const SUPA_KEY = 'sb_publishable_IykroXVrcAvsRmlO6f_USQ_3ihqYPRo';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+// Email → 成員對應
+const EMAIL_MAP = {
+  's1005842@gmail.com': '千婷',
+  'joson.0802@gmail.com': '士德',
+  'p5p50p5p@gmail.com': '立德'
+};
+const ADMIN_EMAIL = 's1005842@gmail.com';
+const MEMBERS = ['千婷','士德','立德'];
+const AV_KEY = { '千婷':'婷', '士德':'士', '立德':'立' };
+const MONTHLY_FIXED = {
+  '千婷': [
+    { label:'給老媽生活費', amount:5000, note:'老媽訂定' },
+    { label:'給老爸生活費', amount:0, note:'老媽訂定（免付）' },
+  ],
+  '士德': [
+    { label:'給老媽生活費', amount:3000, note:'老媽訂定' },
+    { label:'給老爸生活費', amount:5000, note:'含網路、水、瓦斯費' },
+  ],
+  '立德': [
+    { label:'給老媽生活費', amount:1000, note:'老媽訂定' },
+    { label:'給老爸生活費', amount:3000, note:'含網路、水、瓦斯費' },
+  ]
+};
+
+let currentUser = null;
+let currentMember = null;
+let isAdmin = false;
+let splitVals = {千婷:0,士德:0,立德:0};
+let receiptFile = null;
+let selectedCategory = null;
+let decisionsData = [];
+
+// ── Auth ──────────────────────────────────────────────
+async function loginWithGoogle() {
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  if (error) showToast('登入失敗：' + error.message, false);
+}
+
+async function logout() {
+  await db.auth.signOut();
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  currentUser = null; currentMember = null;
+}
+
+async function initAuth() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) await setupUser(session.user);
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (session) await setupUser(session.user);
+  });
+}
+
+async function setupUser(user) {
+  const email = user.email;
+  const member = EMAIL_MAP[email];
+  if (!member) {
+    await db.auth.signOut();
+    showToast('此帳號無使用權限', false);
+    return;
+  }
+  currentUser = user;
+  currentMember = member;
+  isAdmin = (email === ADMIN_EMAIL);
+
+  // Topbar
+  const av = document.getElementById('topbar-avatar');
+  av.src = user.user_metadata?.avatar_url || '';
+  av.onerror = () => { av.style.display='none'; };
+  document.getElementById('topbar-name').textContent = member;
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+
+  // Show admin button
+  document.getElementById('add-decision-btn').style.display = isAdmin ? 'inline-flex' : 'none';
+
+  setToday();
+  loadSummary();
+}
+
+// ── Utils ─────────────────────────────────────────────
+function fmt(n) { return 'NT$' + Number(n||0).toLocaleString(); }
+function setToday() {
+  const t = new Date().toISOString().slice(0,10);
+  ['exp-date','rep-date'].forEach(id => document.getElementById(id).value = t);
+}
+function showToast(msg, ok=true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err') + ' show';
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+function switchTab(name) {
+  const names = ['summary','expense','repay','history','decisions','profile'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if (name==='summary') loadSummary();
+  if (name==='history') loadHistory();
+  if (name==='decisions') loadDecisions();
+  if (name==='profile') loadProfile();
+}
+
+// ── Split ─────────────────────────────────────────────
+function onSplitTypeChange() {
+  const t = document.getElementById('exp-split-type').value;
+  document.getElementById('ratio-section').style.display = t==='ratio' ? 'block' : 'none';
+  document.getElementById('custom-section').style.display = t==='custom' ? 'block' : 'none';
+  recalcSplit();
+}
+function recalcSplit() {
+  const total = parseInt(document.getElementById('exp-amount').value)||0;
+  const t = document.getElementById('exp-split-type').value;
+  const prev = document.getElementById('split-preview');
+  if (!total||!t) { prev.style.display='none'; return; }
+  if (t==='avg') {
+    const each = Math.ceil(total/3);
+    splitVals = {千婷:each,士德:each,立德:each};
+    updatePreview(); prev.style.display='block';
+  } else if (t==='ratio') {
+    const r = {千婷:parseFloat(document.getElementById('ratio-千婷').value)||0, 士德:parseFloat(document.getElementById('ratio-士德').value)||0, 立德:parseFloat(document.getElementById('ratio-立德').value)||0};
+    const s = r.千婷+r.士德+r.立德;
+    if (s<=0) { prev.style.display='none'; return; }
+    splitVals = {千婷:Math.ceil(total*(r.千婷/s)), 士德:Math.ceil(total*(r.士德/s)), 立德:Math.ceil(total*(r.立德/s))};
+    updatePreview(); prev.style.display='block';
+  } else if (t==='custom') {
+    const c = {千婷:parseInt(document.getElementById('custom-千婷').value)||0, 士德:parseInt(document.getElementById('custom-士德').value)||0, 立德:parseInt(document.getElementById('custom-立德').value)||0};
+    splitVals = c;
+    const csum = c.千婷+c.士德+c.立德;
+    const msg = document.getElementById('custom-validation');
+    msg.style.display='block';
+    msg.className='validation '+(csum===total?'v-ok':'v-err');
+    msg.textContent = csum===total ? `✓ 合計 ${fmt(csum)} = 總金額` : `合計 ${fmt(csum)} ≠ 總金額 ${fmt(total)}`;
+    updatePreview(); prev.style.display='block';
+  }
+}
+function updatePreview() {
+  MEMBERS.forEach(m => { document.getElementById('prev-'+m).textContent = fmt(splitVals[m]); });
+}
+
+// ── Receipt ───────────────────────────────────────────
+function previewReceipt(input) {
+  receiptFile = input.files[0];
+  if (!receiptFile) return;
+  const area = document.getElementById('upload-area');
+  area.classList.add('has-file');
+  const reader = new FileReader();
+  reader.onload = e => {
+    area.innerHTML = `<img src="${e.target.result}" class="upload-preview" alt="預覽"><div class="upload-text" style="margin-top:6px">✅ ${receiptFile.name}</div><div class="upload-sub">點擊更換</div>`;
+  };
+  reader.readAsDataURL(receiptFile);
+}
+
+async function uploadReceipt() {
+  if (!receiptFile) return null;
+  const ext = receiptFile.name.split('.').pop();
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await db.storage.from('receipts').upload(path, receiptFile);
+  if (error) { showToast('照片上傳失敗', false); return null; }
+  const { data } = db.storage.from('receipts').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ── Save Expense ──────────────────────────────────────
+async function saveExpense() {
+  const date=document.getElementById('exp-date').value;
+  const name=document.getElementById('exp-name').value.trim();
+  const amount=parseInt(document.getElementById('exp-amount').value)||0;
+  const payer=document.getElementById('exp-payer').value;
+  const splitType=document.getElementById('exp-split-type').value;
+  const note=document.getElementById('exp-note').value.trim();
+  if (!date||!name||!amount||!payer||!splitType) { showToast('請填寫所有必填欄位 🙏',false); return; }
+  if (splitType==='custom' && splitVals.千婷+splitVals.士德+splitVals.立德!==amount) { showToast('自訂金額合計不等於總金額',false); return; }
+  const typeMap={avg:'平均分攤',ratio:'自訂比例',custom:'自訂金額'};
+  const btn=document.getElementById('exp-save-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 儲存中…';
+  const receiptUrl = await uploadReceipt();
+  const { error } = await db.from('expenses').insert({
+    date,name,amount,payer,
+    split_type:typeMap[splitType],
+    'share_千婷':splitVals.千婷,'share_士德':splitVals.士德,'share_立德':splitVals.立德,
+    note:note||null, created_by:currentMember,
+    receipt_url:receiptUrl||null
+  });
+  btn.disabled=false; btn.innerHTML='✨ 儲存支出';
+  if (error) { showToast('儲存失敗：'+error.message,false); return; }
+  showToast('支出已儲存 🎉');
+  ['exp-name','exp-amount','exp-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('exp-payer').value='';
+  document.getElementById('exp-split-type').value='';
+  document.getElementById('split-preview').style.display='none';
+  document.getElementById('ratio-section').style.display='none';
+  document.getElementById('custom-section').style.display='none';
+  receiptFile=null;
+  document.getElementById('upload-area').classList.remove('has-file');
+  document.getElementById('upload-area').innerHTML='<div class="upload-icon">📷</div><div class="upload-text">點擊上傳照片</div><div class="upload-sub">支援 JPG、PNG，最大 10MB</div>';
+  document.getElementById('receipt-input').value='';
+  setToday(); splitVals={千婷:0,士德:0,立德:0};
+}
+
+// ── Save Repayment ────────────────────────────────────
+async function saveRepayment() {
+  const date=document.getElementById('rep-date').value;
+  const amount=parseInt(document.getElementById('rep-amount').value)||0;
+  const from_member=document.getElementById('rep-from').value;
+  const to_member=document.getElementById('rep-to').value;
+  const note=document.getElementById('rep-note').value.trim();
+  if (!date||!amount||!from_member||!to_member) { showToast('請填寫所有必填欄位 🙏',false); return; }
+  if (from_member===to_member) { showToast('付款人與收款人不能相同',false); return; }
+  const btn=document.getElementById('rep-save-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 儲存中…';
+  const { error } = await db.from('repayments').insert({date,from_member,to_member,amount,note:note||null,created_by:currentMember});
+  btn.disabled=false; btn.innerHTML='✨ 儲存還款';
+  if (error) { showToast('儲存失敗：'+error.message,false); return; }
+  showToast('還款紀錄已儲存 🎉');
+  ['rep-amount','rep-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('rep-from').value=''; document.getElementById('rep-to').value='';
+  setToday();
+}
+
+// ── Summary ───────────────────────────────────────────
+async function loadSummary() {
+  document.getElementById('summary-loading').style.display='block';
+  document.getElementById('summary-content').style.display='none';
+  const [{data:exps},{data:reps}] = await Promise.all([
+    db.from('expenses').select('*'),
+    db.from('repayments').select('*')
+  ]);
+  const stats={};
+  MEMBERS.forEach(m=>{stats[m]={paid:0,owed:0,sentOut:0,received:0};});
+  (exps||[]).forEach(e=>{
+    stats[e.payer].paid+=e.amount;
+    MEMBERS.forEach(m=>{stats[m].owed+=e['share_'+m]||0;});
+  });
+  (reps||[]).forEach(r=>{
+    stats[r.from_member].sentOut+=r.amount;
+    stats[r.to_member].received+=r.amount;
+  });
+  MEMBERS.forEach(m=>{stats[m].net=(stats[m].paid-stats[m].owed)+stats[m].sentOut-stats[m].received;});
+  const grid=document.getElementById('settlementGrid');
+  grid.innerHTML=MEMBERS.map(m=>{
+    const s=stats[m], cls=s.net>0?'pos':s.net<0?'neg':'zero';
+    const desc=s.net>0?'應收回 💚':s.net<0?'應付出 ❤️':'完美平衡 ✨';
+    const av=AV_KEY[m];
+    return `<div class="member-card mc-${av}">
+      <div class="mc-header">
+        <div class="avatar av-${av}" style="width:44px;height:44px;font-size:16px">${av}</div>
+        <div><div class="mc-name">${m}</div>${m==='千婷'?'<span class="mc-role">👑 管理員</span>':''}</div>
+      </div>
+      <div class="mc-stat"><span class="k">💳 累計代墊</span><span class="v">${fmt(s.paid)}</span></div>
+      <div class="mc-stat"><span class="k">⚖️ 應分攤總額</span><span class="v">${fmt(s.owed)}</span></div>
+      <div class="mc-stat"><span class="k">↗️ 已還出</span><span class="v">${fmt(s.sentOut)}</span></div>
+      <div class="mc-stat"><span class="k">↙️ 已收回</span><span class="v">${fmt(s.received)}</span></div>
+      <div class="mc-final ${cls}">
+        <div class="fl">最終結算狀態</div>
+        <div class="fa">${fmt(Math.abs(s.net))}</div>
+        <div class="fd">${desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const debts=MEMBERS.filter(m=>stats[m].net<0).map(m=>({m,amt:-stats[m].net}));
+  const creds=MEMBERS.filter(m=>stats[m].net>0).map(m=>({m,amt:stats[m].net}));
+  const actDiv=document.getElementById('suggestedActions');
+  if (debts.length===0) { actDiv.innerHTML='<div style="font-size:14px;color:var(--green-dark);padding:8px 0">🎉 目前帳目完全平衡，無需清償！</div>'; }
+  else {
+    const actions=[]; const d2=debts.map(x=>({...x})), c2=creds.map(x=>({...x}));
+    let di=0,ci=0;
+    while(di<d2.length&&ci<c2.length){
+      const pay=Math.min(d2[di].amt,c2[ci].amt);
+      if(pay>0) actions.push(`${d2[di].m} 付 ${fmt(pay)} 給 ${c2[ci].m}`);
+      d2[di].amt-=pay; c2[ci].amt-=pay;
+      if(d2[di].amt<=0)di++; if(c2[ci].amt<=0)ci++;
+    }
+    actDiv.innerHTML=actions.map(a=>`<div class="action-item"><span class="action-arrow">👉</span>${a}</div>`).join('');
+  }
+  document.getElementById('summary-loading').style.display='none';
+  document.getElementById('summary-content').style.display='block';
+}
+
+// ── History ───────────────────────────────────────────
+async function loadHistory() {
+  ['exp-history-loading','rep-history-loading'].forEach(id=>{document.getElementById(id).style.display='block';});
+  ['exp-history-content','rep-history-content'].forEach(id=>{document.getElementById(id).style.display='none';});
+  const [{data:exps},{data:reps}]=await Promise.all([
+    db.from('expenses').select('*').order('date',{ascending:false}),
+    db.from('repayments').select('*').order('date',{ascending:false})
+  ]);
+  const tagClass={'平均分攤':'tag-avg','自訂比例':'tag-ratio','自訂金額':'tag-custom'};
+  const tbody=document.getElementById('exp-table-body');
+  const expEmpty=document.getElementById('exp-empty');
+  if(!exps||exps.length===0){tbody.innerHTML='';expEmpty.style.display='block';}
+  else {
+    expEmpty.style.display='none';
+    tbody.innerHTML=exps.map(e=>`<tr>
+      <td>${e.date}</td><td style="font-weight:600">${e.name}</td>
+      <td style="font-weight:700;color:var(--pink)">${fmt(e.amount)}</td>
+      <td><div style="display:flex;align-items:center;gap:4px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:20px;height:20px;font-size:9px">${AV_KEY[e.payer]}</div>${e.payer}</div></td>
+      <td><span class="tag ${tagClass[e.split_type]||''}">${e.split_type}</span></td>
+      <td>${fmt(e['share_千婷'])}</td><td>${fmt(e['share_士德'])}</td><td>${fmt(e['share_立德'])}</td>
+      <td>${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="發票">`:'-'}</td>
+      <td style="color:var(--text2);font-size:12px;max-width:120px">${e.note||'—'}</td>
+      <td><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delExpense('${e.id}')">🗑</button></td>
+    </tr>`).join('');
+  }
+  document.getElementById('exp-history-loading').style.display='none';
+  document.getElementById('exp-history-content').style.display='block';
+  const rtbody=document.getElementById('rep-table-body');
+  const repEmpty=document.getElementById('rep-empty');
+  if(!reps||reps.length===0){rtbody.innerHTML='';repEmpty.style.display='block';}
+  else {
+    repEmpty.style.display='none';
+    rtbody.innerHTML=reps.map(r=>`<tr>
+      <td>${r.date}</td><td>${r.from_member}</td><td>${r.to_member}</td>
+      <td style="font-weight:700;color:var(--mint-dark)">${fmt(r.amount)}</td>
+      <td style="color:var(--text2);font-size:12px">${r.note||'—'}</td>
+      <td><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepayment('${r.id}')">🗑</button></td>
+    </tr>`).join('');
+  }
+  document.getElementById('rep-history-loading').style.display='none';
+  document.getElementById('rep-history-content').style.display='block';
+}
+
+async function delExpense(id) {
+  if (!isAdmin) { showToast('只有千婷可以刪除',false); return; }
+  if (!confirm('確定要刪除這筆支出嗎？')) return;
+  const { error } = await db.from('expenses').delete().eq('id',id);
+  if (error) { showToast('刪除失敗',false); return; }
+  showToast('已刪除 🗑'); loadHistory();
+}
+async function delRepayment(id) {
+  if (!isAdmin) { showToast('只有千婷可以刪除',false); return; }
+  if (!confirm('確定要刪除這筆還款紀錄嗎？')) return;
+  const { error } = await db.from('repayments').delete().eq('id',id);
+  if (error) { showToast('刪除失敗',false); return; }
+  showToast('已刪除 🗑'); loadHistory();
+}
+
+// ── Decisions ─────────────────────────────────────────
+const CAT_CONFIG = {
+  '節慶與生日': {emoji:'🎉', cls:'cat-festival'},
+  '生活與健康': {emoji:'💊', cls:'cat-life'},
+  '家族出遊':   {emoji:'✈️', cls:'cat-travel'},
+  '固定雜項':   {emoji:'📦', cls:'cat-misc'},
+};
+
+async function loadDecisions() {
+  document.getElementById('decisions-loading').style.display='block';
+  document.getElementById('decisions-content').style.display='none';
+  const { data } = await db.from('decisions').select('*').order('sort_order');
+  decisionsData = data || [];
+
+  // If empty, seed with default data
+  if (decisionsData.length === 0 && isAdmin) {
+    await seedDecisions();
+    const { data: d2 } = await db.from('decisions').select('*').order('sort_order');
+    decisionsData = d2 || [];
+  }
+
+  document.getElementById('add-decision-btn').style.display = isAdmin ? 'inline-flex' : 'none';
+  renderDecisionCats();
+  document.getElementById('decisions-loading').style.display='none';
+  document.getElementById('decisions-content').style.display='block';
+}
+
+function renderDecisionCats() {
+  const cats = [...new Set(decisionsData.map(d=>d.category))];
+  const grid = document.getElementById('cat-grid');
+  grid.innerHTML = cats.map(c=>{
+    const cfg = CAT_CONFIG[c]||{emoji:'📋',cls:'cat-misc'};
+    const count = decisionsData.filter(d=>d.category===c).length;
+    return `<div class="cat-card ${cfg.cls} ${selectedCategory===c?'active':''}" onclick="selectCat('${c}')">
+      <div class="cat-emoji">${cfg.emoji}</div>
+      <div class="cat-name">${c}</div>
+      <div class="cat-count">${count} 個項目</div>
+    </div>`;
+  }).join('');
+  if (!selectedCategory && cats.length>0) selectCat(cats[0]);
+  else if (selectedCategory) renderDecisionItems(selectedCategory);
+}
+
+function selectCat(cat) {
+  selectedCategory = cat;
+  renderDecisionCats();
+}
+
+function renderDecisionItems(cat) {
+  const items = decisionsData.filter(d=>d.category===cat);
+  const el = document.getElementById('decision-items');
+  el.innerHTML = `<div class="card"><div class="card-title">${CAT_CONFIG[cat]?.emoji||'📋'} ${cat}</div>
+    <div class="decision-list">${items.map(d=>`
+      <div class="decision-item">
+        <div class="di-main">
+          <div class="di-title">${d.title}</div>
+          <div class="di-meta">
+            ${d.month?`<span class="di-badge di-month">📅 ${d.month}</span>`:''}
+            ${d.amount?`<span class="di-badge di-amount">💰 ${d.amount}</span>`:''}
+            <span class="di-badge di-rule">⚖️ ${d.split_rule}</span>
+          </div>
+          ${d.detail?`<div class="di-detail">${d.detail}</div>`:''}
+        </div>
+        ${isAdmin?`<div class="di-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editDecision('${d.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="delDecision('${d.id}')">🗑</button>
+        </div>`:''}
+      </div>`).join('')}
+    </div></div>`;
+}
+
+function showAddDecision() {
+  document.getElementById('add-decision-form').style.display='block';
+}
+
+async function saveDecision() {
+  const category=document.getElementById('new-category').value;
+  const title=document.getElementById('new-title').value.trim();
+  const month=document.getElementById('new-month').value.trim();
+  const amount=document.getElementById('new-amount').value.trim();
+  const split_rule=document.getElementById('new-rule').value.trim();
+  const detail=document.getElementById('new-detail').value.trim();
+  if (!title||!split_rule) { showToast('請填寫項目名稱和分攤原則',false); return; }
+  const { error } = await db.from('decisions').insert({category,title,month:month||null,amount:amount||null,split_rule,detail:detail||null,sort_order:decisionsData.length});
+  if (error) { showToast('儲存失敗',false); return; }
+  showToast('決議已新增 📌');
+  document.getElementById('add-decision-form').style.display='none';
+  ['new-title','new-month','new-amount','new-rule','new-detail'].forEach(id=>document.getElementById(id).value='');
+  loadDecisions();
+}
+
+async function delDecision(id) {
+  if (!confirm('確定刪除此決議項目？')) return;
+  await db.from('decisions').delete().eq('id',id);
+  showToast('已刪除'); loadDecisions();
+}
+
+function editDecision(id) {
+  const d = decisionsData.find(x=>x.id===id);
+  if (!d) return;
+  const el = document.getElementById('decision-items');
+  const itemEl = el.querySelector(`[data-id="${id}"]`);
+  // Simple inline edit via prompt for brevity
+  const newRule = prompt('修改分攤原則：', d.split_rule);
+  if (newRule===null) return;
+  const newDetail = prompt('修改備註說明：', d.detail||'');
+  db.from('decisions').update({split_rule:newRule, detail:newDetail||null}).eq('id',id).then(({error})=>{
+    if (error) showToast('更新失敗',false);
+    else { showToast('已更新 ✏️'); loadDecisions(); }
+  });
+}
+
+async function seedDecisions() {
+  const defaults = [
+    {category:'節慶與生日',title:'過年聚餐',month:'1月',amount:'15,000元',split_rule:'AA均分',detail:'三姊弟各負擔1/3',sort_order:1},
+    {category:'節慶與生日',title:'母親節（餐費+蛋糕）',month:'5月',amount:'9,000元',split_rule:'AA均分',detail:null,sort_order:2},
+    {category:'節慶與生日',title:'父親節（餐費+蛋糕）',month:'8月',amount:'9,000元',split_rule:'AA均分',detail:null,sort_order:3},
+    {category:'節慶與生日',title:'老爸生日（餐費+蛋糕）',month:'1月',amount:'9,000元',split_rule:'AA均分',detail:null,sort_order:4},
+    {category:'節慶與生日',title:'老媽生日（餐費+蛋糕）',month:'6月',amount:'9,000元',split_rule:'AA均分',detail:null,sort_order:5},
+    {category:'生活與健康',title:'健保費（老爸）',month:'每月',amount:'892元/月',split_rule:'固定均分',detail:'10,704元/年',sort_order:10},
+    {category:'生活與健康',title:'國民年金',month:'定期',amount:'1,329元',split_rule:'固定均分',detail:null,sort_order:11},
+    {category:'生活與健康',title:'日常醫療',month:'不定期',amount:'視實際發生',split_rule:'固定均分',detail:null,sort_order:12},
+    {category:'生活與健康',title:'重大醫療',month:'不定期',amount:'視實際發生',split_rule:'固定均分',detail:null,sort_order:13},
+    {category:'生活與健康',title:'長照及輔具',month:'不定期',amount:'視實際發生',split_rule:'固定均分',detail:null,sort_order:14},
+    {category:'生活與健康',title:'給老爸生活費',month:'每月',amount:'千婷0/立德3,000/士德5,000',split_rule:'指定金額分攤',detail:'立德含：網路費、水費、瓦斯費',sort_order:15},
+    {category:'生活與健康',title:'給老媽生活費',month:'每月',amount:'千婷5,000/立德1,000/士德3,000',split_rule:'指定金額分攤',detail:'老媽訂定',sort_order:16},
+    {category:'家族出遊',title:'年度家族大旅遊',month:'每年',amount:'視行程而定',split_rule:'長輩費均分+各自小家庭',detail:'共12人，取消仍需分攤長輩房費1/3',sort_order:20},
+    {category:'家族出遊',title:'專程帶長輩出遊',month:'不定期',amount:'實報實銷',split_rule:'固定均分',detail:'需事前報價並取得其餘平輩同意',sort_order:21},
+    {category:'固定雜項',title:'奶爸媽手機月費',month:'每月',amount:'900元/月',split_rule:'依俱樂部原則',detail:'199+199+499 三門門號',sort_order:30},
+    {category:'固定雜項',title:'YouTube Premium',month:'年繳',amount:'630元/月',split_rule:'依俱樂部原則',detail:'明年初起算',sort_order:31},
+    {category:'固定雜項',title:'Netflix',month:'年繳',amount:'660元/月',split_rule:'依俱樂部原則',detail:'明年初起算',sort_order:32},
+  ];
+  await db.from('decisions').insert(defaults);
+}
+
+// ── Profile ───────────────────────────────────────────
+async function loadProfile() {
+  document.getElementById('profile-loading').style.display='block';
+  document.getElementById('profile-content').style.display='none';
+
+  document.getElementById('profile-avatar').src = currentUser.user_metadata?.avatar_url||'';
+  document.getElementById('profile-name').textContent = currentMember;
+  document.getElementById('profile-email').textContent = currentUser.email;
+  document.getElementById('profile-role').textContent = isAdmin ? '👑 管理員' : '👤 成員';
+
+  // Monthly fixed
+  const monthly = MONTHLY_FIXED[currentMember]||[];
+  const totalMonthly = monthly.reduce((s,x)=>s+x.amount,0);
+  document.getElementById('monthly-grid').innerHTML = [
+    ...monthly.map(m=>`<div class="monthly-item">
+      <div class="mi-label">${m.label}</div>
+      <div class="mi-amount">${m.amount===0?'免付':fmt(m.amount)}</div>
+      <div class="mi-note">${m.note}</div>
+    </div>`),
+    `<div class="monthly-item" style="background:linear-gradient(135deg,var(--pink-light),var(--lavender-light));border-color:var(--pink)">
+      <div class="mi-label">每月合計</div>
+      <div class="mi-amount" style="color:var(--pink-dark)">${fmt(totalMonthly)}</div>
+      <div class="mi-note">固定應付金額</div>
+    </div>`
+  ].join('');
+
+  // Stats this year
+  const thisYear = new Date().getFullYear();
+  const [{data:exps},{data:reps}] = await Promise.all([
+    db.from('expenses').select('*'),
+    db.from('repayments').select('*')
+  ]);
+  const myExps = (exps||[]).filter(e=>e.date.startsWith(thisYear));
+  const myReps = (reps||[]).filter(r=>r.date.startsWith(thisYear));
+  const totalPaid = myExps.filter(e=>e.payer===currentMember).reduce((s,e)=>s+e.amount,0);
+  const totalOwed = myExps.reduce((s,e)=>s+(e['share_'+currentMember]||0),0);
+  const totalSent = myReps.filter(r=>r.from_member===currentMember).reduce((s,r)=>s+r.amount,0);
+  const totalRecv = myReps.filter(r=>r.to_member===currentMember).reduce((s,r)=>s+r.amount,0);
+  const net = (totalPaid-totalOwed)+totalSent-totalRecv;
+
+  document.getElementById('profile-stats').innerHTML = `
+    <div class="stat-box stat-pink"><div class="sb-val">${fmt(totalPaid)}</div><div class="sb-label">今年累計代墊</div></div>
+    <div class="stat-box stat-mint"><div class="sb-val">${fmt(totalOwed)}</div><div class="sb-label">今年應分攤</div></div>
+    <div class="stat-box stat-lav"><div class="sb-val ${net>=0?'':''}' style="color:${net>=0?'var(--green-dark)':'var(--red-dark)'}">${fmt(Math.abs(net))}</div><div class="sb-label">${net>=0?'應收回':'應付出'}</div></div>
+  `;
+
+  // My recent records
+  const myExpRows = (exps||[]).filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).slice(0,10);
+  document.getElementById('my-history').innerHTML = myExpRows.length===0
+    ? '<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無相關紀錄</div></div>'
+    : `<div class="table-wrap"><table>
+        <thead><tr><th>日期</th><th>名稱</th><th>代墊者</th><th>總額</th><th>我的應付</th></tr></thead>
+        <tbody>${myExpRows.map(e=>`<tr>
+          <td>${e.date}</td><td>${e.name}</td>
+          <td><div style="display:flex;align-items:center;gap:4px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div>${e.payer}</div></td>
+          <td>${fmt(e.amount)}</td>
+          <td style="font-weight:700;color:${e.payer===currentMember?'var(--green-dark)':'var(--pink)'}">${e.payer===currentMember?'我代墊':fmt(e['share_'+currentMember])}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+
+  document.getElementById('profile-loading').style.display='none';
+  document.getElementById('profile-content').style.display='block';
+}
+
+// ── Modal ─────────────────────────────────────────────
+function openModal(url) {
+  document.getElementById('modal-img').src = url;
+  document.getElementById('img-modal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('img-modal').style.display = 'none';
+}
+
+// ── Init ──────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>
