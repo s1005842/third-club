@@ -469,6 +469,18 @@ tr:hover td { background:var(--bg2); }
   <img id="modal-img" class="modal-img" src="" alt="" onclick="event.stopPropagation()">
 </div>
 
+<!-- Edit Modal -->
+<div id="edit-modal" class="modal-overlay" style="display:none">
+  <div style="background:#fff;border-radius:var(--radius-lg);padding:1.5rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div class="card-title" id="edit-modal-title">✏️ 編輯</div>
+    <div id="edit-modal-body"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="btn btn-primary" id="edit-save-btn" onclick="saveEdit()">儲存修改</button>
+      <button class="btn btn-ghost" onclick="closeEditModal()">取消</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script>
@@ -508,6 +520,8 @@ let splitVals = {千婷:0,士德:0,立德:0};
 let receiptFile = null;
 let selectedCategory = null;
 let decisionsData = [];
+let expensesCache = [];
+let repaymentsCache = [];
 
 // ── Auth ──────────────────────────────────────────────
 async function loginWithGoogle() {
@@ -768,6 +782,8 @@ async function loadHistory() {
     db.from('expenses').select('*').order('date',{ascending:false}),
     db.from('repayments').select('*').order('date',{ascending:false})
   ]);
+  expensesCache = exps||[];
+  repaymentsCache = reps||[];
   const tagClass={'平均分攤':'tag-avg','自訂比例':'tag-ratio','自訂金額':'tag-custom'};
   const tbody=document.getElementById('exp-table-body');
   const expEmpty=document.getElementById('exp-empty');
@@ -782,7 +798,7 @@ async function loadHistory() {
       <td>${fmt(e['share_千婷'])}</td><td>${fmt(e['share_士德'])}</td><td>${fmt(e['share_立德'])}</td>
       <td>${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="發票">`:'-'}</td>
       <td style="color:var(--text2);font-size:12px;max-width:120px">${e.note||'—'}</td>
-      <td><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delExpense('${e.id}')">🗑</button></td>
+      <td style="white-space:nowrap"><button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditExpense('${e.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delExpense('${e.id}')">🗑</button></td>
     </tr>`).join('');
   }
   document.getElementById('exp-history-loading').style.display='none';
@@ -796,7 +812,7 @@ async function loadHistory() {
       <td>${r.date}</td><td>${r.from_member}</td><td>${r.to_member}</td>
       <td style="font-weight:700;color:var(--mint-dark)">${fmt(r.amount)}</td>
       <td style="color:var(--text2);font-size:12px">${r.note||'—'}</td>
-      <td><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepayment('${r.id}')">🗑</button></td>
+      <td style="white-space:nowrap"><button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditRepayment('${r.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepayment('${r.id}')">🗑</button></td>
     </tr>`).join('');
   }
   document.getElementById('rep-history-loading').style.display='none';
@@ -816,6 +832,156 @@ async function delRepayment(id) {
   const { error } = await db.from('repayments').delete().eq('id',id);
   if (error) { showToast('刪除失敗',false); return; }
   showToast('已刪除 🗑'); loadHistory();
+}
+
+// ── Edit Modal ────────────────────────────────────────
+let editContext = null; // { type:'expense'|'repayment', id, splitVals }
+
+function openEditExpense(id) {
+  if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
+  const e = expensesCache.find(x=>x.id===id);
+  if (!e) return;
+  editContext = { type:'expense', id, splitVals:{千婷:e['share_千婷'],士德:e['share_士德'],立德:e['share_立德']} };
+  document.getElementById('edit-modal-title').textContent = '✏️ 編輯支出';
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="field"><label>📅 日期</label><input type="date" id="ed-date" value="${e.date}"></div>
+    <div class="field"><label>📝 支出名稱</label><input type="text" id="ed-name" value="${(e.name||'').replace(/"/g,'&quot;')}"></div>
+    <div class="r2">
+      <div class="field"><label>💰 總金額</label><input type="number" id="ed-amount" value="${e.amount}" oninput="edRecalc()"></div>
+      <div class="field"><label>👤 代墊者</label>
+        <select id="ed-payer">${MEMBERS.map(m=>`<option ${m===e.payer?'selected':''}>${m}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>⚖️ 分攤方式</label>
+      <select id="ed-split-type" onchange="edSplitChange()">
+        <option value="平均分攤" ${e.split_type==='平均分攤'?'selected':''}>平均分攤</option>
+        <option value="自訂金額" ${e.split_type==='自訂金額'?'selected':''}>自訂金額</option>
+        <option value="自訂比例" ${e.split_type==='自訂比例'?'selected':''}>自訂比例</option>
+      </select>
+    </div>
+    <div id="ed-custom" style="display:${e.split_type==='平均分攤'?'none':'block'}">
+      <div class="r3">
+        <div class="field"><label>千婷</label><input type="number" id="ed-s-千婷" value="${e['share_千婷']}" oninput="edValidate()"></div>
+        <div class="field"><label>士德</label><input type="number" id="ed-s-士德" value="${e['share_士德']}" oninput="edValidate()"></div>
+        <div class="field"><label>立德</label><input type="number" id="ed-s-立德" value="${e['share_立德']}" oninput="edValidate()"></div>
+      </div>
+      <div id="ed-validation" class="validation" style="display:none"></div>
+    </div>
+    <div class="field"><label>📌 備註</label><textarea id="ed-note">${e.note||''}</textarea></div>
+  `;
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function edSplitChange() {
+  const t = document.getElementById('ed-split-type').value;
+  document.getElementById('ed-custom').style.display = t==='平均分攤' ? 'none' : 'block';
+  if (t==='平均分攤') edRecalc();
+}
+function edRecalc() {
+  const t = document.getElementById('ed-split-type').value;
+  if (t==='平均分攤') {
+    const total = parseInt(document.getElementById('ed-amount').value)||0;
+    const each = Math.ceil(total/3);
+    ['千婷','士德','立德'].forEach(m=>{ const el=document.getElementById('ed-s-'+m); if(el) el.value=each; });
+    editContext.splitVals = {千婷:each,士德:each,立德:each};
+  }
+}
+function edValidate() {
+  const total = parseInt(document.getElementById('ed-amount').value)||0;
+  const s = {千婷:parseInt(document.getElementById('ed-s-千婷').value)||0, 士德:parseInt(document.getElementById('ed-s-士德').value)||0, 立德:parseInt(document.getElementById('ed-s-立德').value)||0};
+  editContext.splitVals = s;
+  const sum = s.千婷+s.士德+s.立德;
+  const msg = document.getElementById('ed-validation');
+  if (document.getElementById('ed-split-type').value==='平均分攤') { msg.style.display='none'; return; }
+  msg.style.display='block';
+  msg.className='validation '+(sum===total?'v-ok':'v-err');
+  msg.textContent = sum===total ? `✓ 合計 ${fmt(sum)} = 總金額` : `合計 ${fmt(sum)} ≠ 總金額 ${fmt(total)}`;
+}
+
+function openEditRepayment(id) {
+  if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
+  const r = repaymentsCache.find(x=>x.id===id);
+  if (!r) return;
+  editContext = { type:'repayment', id };
+  document.getElementById('edit-modal-title').textContent = '✏️ 編輯還款';
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="field"><label>📅 日期</label><input type="date" id="ed-date" value="${r.date}"></div>
+    <div class="field"><label>💰 還款金額</label><input type="number" id="ed-amount" value="${r.amount}"></div>
+    <div class="r2">
+      <div class="field"><label>👤 付款人</label>
+        <select id="ed-from">${MEMBERS.map(m=>`<option ${m===r.from_member?'selected':''}>${m}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>👤 收款人</label>
+        <select id="ed-to">${MEMBERS.map(m=>`<option ${m===r.to_member?'selected':''}>${m}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>📌 備註</label><textarea id="ed-note">${r.note||''}</textarea></div>
+  `;
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+async function saveEdit() {
+  if (!editContext) return;
+  const btn = document.getElementById('edit-save-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 儲存中…';
+  if (editContext.type==='expense') {
+    const total = parseInt(document.getElementById('ed-amount').value)||0;
+    const splitType = document.getElementById('ed-split-type').value;
+    const sv = editContext.splitVals;
+    if (splitType!=='平均分攤' && sv.千婷+sv.士德+sv.立德!==total) {
+      btn.disabled=false; btn.innerHTML='儲存修改';
+      showToast('分攤金額合計不等於總金額',false); return;
+    }
+    const { error } = await db.from('expenses').update({
+      date: document.getElementById('ed-date').value,
+      name: document.getElementById('ed-name').value.trim(),
+      amount: total,
+      payer: document.getElementById('ed-payer').value,
+      split_type: splitType,
+      'share_千婷':sv.千婷,'share_士德':sv.士德,'share_立德':sv.立德,
+      note: document.getElementById('ed-note').value.trim()||null
+    }).eq('id', editContext.id);
+    btn.disabled=false; btn.innerHTML='儲存修改';
+    if (error) { showToast('更新失敗：'+error.message,false); return; }
+  } else if (editContext.type==='repayment') {
+    const from_member = document.getElementById('ed-from').value;
+    const to_member = document.getElementById('ed-to').value;
+    if (from_member===to_member) { btn.disabled=false; btn.innerHTML='儲存修改'; showToast('付款人與收款人不能相同',false); return; }
+    const { error } = await db.from('repayments').update({
+      date: document.getElementById('ed-date').value,
+      amount: parseInt(document.getElementById('ed-amount').value)||0,
+      from_member, to_member,
+      note: document.getElementById('ed-note').value.trim()||null
+    }).eq('id', editContext.id);
+    btn.disabled=false; btn.innerHTML='儲存修改';
+    if (error) { showToast('更新失敗：'+error.message,false); return; }
+  } else if (editContext.type==='decision') {
+    const title = document.getElementById('ed-title').value.trim();
+    const rule = document.getElementById('ed-rule').value.trim();
+    if (!title||!rule) { btn.disabled=false; btn.innerHTML='儲存修改'; showToast('項目名稱和分攤原則必填',false); return; }
+    const { error } = await db.from('decisions').update({
+      category: document.getElementById('ed-category').value,
+      title,
+      month: document.getElementById('ed-month').value.trim()||null,
+      amount: document.getElementById('ed-amount-txt').value.trim()||null,
+      split_rule: rule,
+      detail: document.getElementById('ed-detail').value.trim()||null
+    }).eq('id', editContext.id);
+    btn.disabled=false; btn.innerHTML='儲存修改';
+    if (error) { showToast('更新失敗：'+error.message,false); return; }
+    showToast('已更新 ✏️');
+    closeEditModal();
+    loadDecisions();
+    return;
+  }
+  showToast('已更新 ✏️');
+  closeEditModal();
+  loadHistory();
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  editContext = null;
 }
 
 // ── Decisions ─────────────────────────────────────────
@@ -916,18 +1082,24 @@ async function delDecision(id) {
 }
 
 function editDecision(id) {
+  if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
   const d = decisionsData.find(x=>x.id===id);
   if (!d) return;
-  const el = document.getElementById('decision-items');
-  const itemEl = el.querySelector(`[data-id="${id}"]`);
-  // Simple inline edit via prompt for brevity
-  const newRule = prompt('修改分攤原則：', d.split_rule);
-  if (newRule===null) return;
-  const newDetail = prompt('修改備註說明：', d.detail||'');
-  db.from('decisions').update({split_rule:newRule, detail:newDetail||null}).eq('id',id).then(({error})=>{
-    if (error) showToast('更新失敗',false);
-    else { showToast('已更新 ✏️'); loadDecisions(); }
-  });
+  editContext = { type:'decision', id };
+  document.getElementById('edit-modal-title').textContent = '✏️ 編輯決議';
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="field"><label>類別</label>
+      <select id="ed-category">
+        ${['節慶與生日','生活與健康','家族出遊','固定雜項'].map(c=>`<option ${c===d.category?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>項目名稱</label><input type="text" id="ed-title" value="${(d.title||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>月份</label><input type="text" id="ed-month" value="${(d.month||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>預估費用</label><input type="text" id="ed-amount-txt" value="${(d.amount||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>分攤原則</label><input type="text" id="ed-rule" value="${(d.split_rule||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>備註說明</label><textarea id="ed-detail">${d.detail||''}</textarea></div>
+  `;
+  document.getElementById('edit-modal').style.display = 'flex';
 }
 
 async function seedDecisions() {
