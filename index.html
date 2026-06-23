@@ -381,7 +381,7 @@ tr:hover td { background:var(--bg2); }
     <button class="tab" onclick="switchTab('expense')"><span class="tab-icon">➕</span>新增支出</button>
     <button class="tab" onclick="switchTab('repay')"><span class="tab-icon">💸</span>新增還款</button>
     <button class="tab" onclick="switchTab('history')"><span class="tab-icon">📋</span>明細記錄</button>
-    <button class="tab" onclick="switchTab('profile')"><span class="tab-icon">👤</span>個人頁面</button>
+    <button class="tab" onclick="switchTab('profile')"><span class="tab-icon">🐱</span>個人頁面</button>
   </div>
   <div class="content">
 
@@ -542,10 +542,10 @@ tr:hover td { background:var(--bg2); }
         </div>
 
         <div class="card">
-          <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">🌸 我的分攤預算預估</div>
             <button class="btn btn-ghost btn-sm" onclick="openDecisionsModal()">📌 俱樂部決議</button>
           </div>
-          <div class="card-title">🌸 我的分攤預算預估</div>
           <div id="budget-estimate"></div>
         </div>
 
@@ -1615,7 +1615,7 @@ async function loadProfile() {
   document.getElementById('profile-avatar').src = currentUser.user_metadata?.avatar_url||'';
   document.getElementById('profile-name').textContent = currentMember;
   document.getElementById('profile-email').textContent = currentUser.email;
-  document.getElementById('profile-role').textContent = isAdmin ? '👑 管理員' : '👤 成員';
+  document.getElementById('profile-role').textContent = isAdmin ? '👑 管理員' : '🐱 成員';
   document.getElementById('living-edit-btn').style.display = isAdmin ? 'inline-flex' : 'none';
 
   // 生活費（從資料庫讀取，可編輯）
