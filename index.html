@@ -486,11 +486,60 @@ tr:hover td { background:var(--bg2); }
             </div>
             <div class="field"><label>項目名稱</label><input type="text" id="new-title" placeholder="如：過年聚餐"></div>
           </div>
-          <div class="r3">
-            <div class="field"><label>月份</label><input type="text" id="new-month" placeholder="如：1月、不定期"></div>
-            <div class="field"><label>預估費用</label><input type="text" id="new-amount" placeholder="如：15,000元"></div>
-            <div class="field"><label>分攤原則</label><input type="text" id="new-rule" placeholder="如：AA均分"></div>
+          <div class="r2">
+            <div class="field"><label>月份說明</label><input type="text" id="new-month" placeholder="如：1月、每月、不定期"></div>
+            <div class="field"><label>預估費用（文字說明）</label><input type="text" id="new-amount" placeholder="如：15,000元"></div>
           </div>
+
+          <div class="field"><label>🔁 定期週期</label>
+            <select id="new-recurring" onchange="onRecurringChange()">
+              <option value="不定期">不定期（不自動產生）</option>
+              <option value="每月">每月（每月最後一天自動入帳）</option>
+              <option value="每年">每年（每年最後一天自動入帳）</option>
+            </select>
+          </div>
+
+          <div id="recurring-detail" style="display:none;background:var(--bg);border:1.5px solid var(--mint);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
+            <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin-bottom:8px">💸 自動入帳設定</div>
+            <div class="r2">
+              <div class="field"><label>每期總金額（元）</label><input type="number" id="new-auto-amount" placeholder="0" min="0" oninput="onDecSplitChange()"></div>
+              <div class="field"><label>代墊者（誰先付）</label>
+                <select id="new-payer"><option>千婷</option><option>士德</option><option>立德</option></select>
+              </div>
+            </div>
+            <div class="field"><label>⚖️ 分攤方式</label>
+              <select id="new-split-type" onchange="onDecSplitChange()">
+                <option value="平均分攤">平均分攤</option>
+                <option value="自訂比例">自訂比例</option>
+                <option value="自訂金額">自訂金額</option>
+              </select>
+            </div>
+            <div id="dec-ratio-section" style="display:none">
+              <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
+              <div class="r3">
+                <div class="field"><label>千婷</label><input type="number" id="dec-ratio-千婷" value="1" min="0" oninput="onDecSplitChange()"></div>
+                <div class="field"><label>士德</label><input type="number" id="dec-ratio-士德" value="1" min="0" oninput="onDecSplitChange()"></div>
+                <div class="field"><label>立德</label><input type="number" id="dec-ratio-立德" value="1" min="0" oninput="onDecSplitChange()"></div>
+              </div>
+            </div>
+            <div id="dec-custom-section" style="display:none">
+              <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
+              <div class="r3">
+                <div class="field"><label>千婷</label><input type="number" id="dec-custom-千婷" value="0" min="0" oninput="onDecSplitChange()"></div>
+                <div class="field"><label>士德</label><input type="number" id="dec-custom-士德" value="0" min="0" oninput="onDecSplitChange()"></div>
+                <div class="field"><label>立德</label><input type="number" id="dec-custom-立德" value="0" min="0" oninput="onDecSplitChange()"></div>
+              </div>
+              <div id="dec-validation" class="validation" style="display:none"></div>
+            </div>
+            <div class="split-preview" style="margin-bottom:0">
+              <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 自動入帳時的應付金額</div>
+              <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="dec-prev-千婷">NT$0</span></div>
+              <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="dec-prev-士德">NT$0</span></div>
+              <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="dec-prev-立德">NT$0</span></div>
+            </div>
+          </div>
+
+          <div class="field"><label>分攤原則（文字說明，顯示用）</label><input type="text" id="new-rule" placeholder="如：AA均分、固定均分"></div>
           <div class="field"><label>備註說明</label><textarea id="new-detail" placeholder="細節說明…" style="min-height:48px"></textarea></div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="saveDecision()">儲存</button>
@@ -645,7 +694,75 @@ async function setupUser(user) {
   document.getElementById('add-decision-btn').style.display = isAdmin ? 'inline-flex' : 'none';
 
   setToday();
+  // 管理員登入時，檢查並自動補產生當期的定期決議支出
+  if (isAdmin) { await autoGenerateRecurring(); }
   loadSummary();
+}
+
+// ── 定期決議自動入帳（方案A：管理員開啟即補產生）──────────
+async function autoGenerateRecurring() {
+  try {
+    const { data: decs } = await db.from('decisions').select('*').neq('recurring','不定期');
+    if (!decs || decs.length===0) return;
+    const now = new Date();
+    const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); // 2026-06
+    const y = String(now.getFullYear());
+    // 取出已產生過的紀錄（用 source_decision_id + period_tag 比對）
+    const { data: existing } = await db.from('expenses').select('source_decision_id,period_tag').not('source_decision_id','is',null);
+    const done = new Set((existing||[]).map(e=>e.source_decision_id+'|'+e.period_tag));
+    let generated = 0;
+    for (const d of decs) {
+      const periodTag = d.recurring==='每月' ? ym : y;
+      if (done.has(d.id+'|'+periodTag)) continue; // 本期已產生，跳過
+      // 計算當期最後一天作為入帳日
+      let lastDay;
+      if (d.recurring==='每月') {
+        lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      } else {
+        lastDay = new Date(now.getFullYear(), 11, 31);
+      }
+      const dateStr = lastDay.toISOString().slice(0,10);
+      const sv = computeDecisionSplit(d);
+      const { error } = await db.from('expenses').insert({
+        date: dateStr,
+        name: d.title + '（' + (d.recurring==='每月'?ym:y) + ' 自動）',
+        amount: d.auto_amount,
+        payer: d.payer || '千婷',
+        split_type: d.split_type || '平均分攤',
+        'share_千婷':sv.千婷, 'share_士德':sv.士德, 'share_立德':sv.立德,
+        note: '定期決議自動入帳',
+        created_by: '系統自動',
+        source_decision_id: d.id,
+        period_tag: periodTag
+      });
+      if (!error) generated++;
+    }
+    if (generated>0) {
+      showToast(`已自動產生 ${generated} 筆定期支出 🔁`);
+      await logAudit('系統自動', '自動入帳', '支出', '', `本期產生 ${generated} 筆定期決議支出`);
+    }
+  } catch(e) { console.error('autoGenerate error', e); }
+}
+
+function computeDecisionSplit(d) {
+  const total = d.auto_amount || 0;
+  const t = d.split_type || '平均分攤';
+  if (t==='平均分攤') {
+    const each = Math.ceil(total/3);
+    return {千婷:each, 士德:each, 立德:each};
+  } else if (t==='自訂比例') {
+    const r = {千婷:d.ratio_千婷||1, 士德:d.ratio_士德||1, 立德:d.ratio_立德||1};
+    const s = r.千婷+r.士德+r.立德;
+    return {千婷:Math.ceil(total*(r.千婷/s)), 士德:Math.ceil(total*(r.士德/s)), 立德:Math.ceil(total*(r.立德/s))};
+  } else {
+    return {千婷:d.split_千婷||0, 士德:d.split_士德||0, 立德:d.split_立德||0};
+  }
+}
+
+// 簡易操作日誌（暫存在記憶體與 console，待後續審計功能啟用後寫入資料庫）
+async function logAudit(actor, action, targetType, targetName, detail) {
+  // 此版本先記錄在 console；下一階段啟用 audit_log 表後改寫入資料庫
+  console.log('[AUDIT]', {actor, action, targetType, targetName, detail, time:new Date().toISOString()});
 }
 
 // ── Utils ─────────────────────────────────────────────
@@ -1112,13 +1229,14 @@ function renderDecisionItems(cat) {
     <div class="decision-list">${items.map(d=>`
       <div class="decision-item">
         <div class="di-main">
-          <div class="di-title">${d.title}</div>
+          <div class="di-title">${d.title} ${d.recurring&&d.recurring!=='不定期'?`<span class="di-badge" style="background:var(--mint-light);color:var(--mint-dark)">🔁 ${d.recurring}自動入帳</span>`:''}</div>
           <div class="di-meta">
             ${d.month?`<span class="di-badge di-month">📅 ${d.month}</span>`:''}
             ${d.amount?`<span class="di-badge di-amount">💰 ${d.amount}</span>`:''}
             <span class="di-badge di-rule">⚖️ ${d.split_rule}</span>
           </div>
           ${d.detail?`<div class="di-detail">${d.detail}</div>`:''}
+          ${d.recurring&&d.recurring!=='不定期'?`<div class="di-detail" style="color:var(--mint-dark)">自動入帳金額 ${fmt(d.auto_amount)}（${d.split_type}）</div>`:''}
         </div>
         ${isAdmin?`<div class="di-actions">
           <button class="btn btn-ghost btn-sm" onclick="editDecision('${d.id}')">✏️</button>
@@ -1128,27 +1246,79 @@ function renderDecisionItems(cat) {
     </div></div>`;
 }
 
+// 決議分攤試算（新增表單用）
+function onRecurringChange() {
+  const r = document.getElementById('new-recurring').value;
+  document.getElementById('recurring-detail').style.display = r==='不定期' ? 'none' : 'block';
+  if (r!=='不定期') onDecSplitChange();
+}
+function onDecSplitChange() {
+  const t = document.getElementById('new-split-type').value;
+  document.getElementById('dec-ratio-section').style.display = t==='自訂比例' ? 'block' : 'none';
+  document.getElementById('dec-custom-section').style.display = t==='自訂金額' ? 'block' : 'none';
+  const total = parseInt(document.getElementById('new-auto-amount').value)||0;
+  let sv = {千婷:0,士德:0,立德:0};
+  if (t==='平均分攤') {
+    const each = Math.ceil(total/3); sv = {千婷:each,士德:each,立德:each};
+  } else if (t==='自訂比例') {
+    const r = {千婷:parseFloat(document.getElementById('dec-ratio-千婷').value)||0, 士德:parseFloat(document.getElementById('dec-ratio-士德').value)||0, 立德:parseFloat(document.getElementById('dec-ratio-立德').value)||0};
+    const s = r.千婷+r.士德+r.立德;
+    if (s>0) sv = {千婷:Math.ceil(total*(r.千婷/s)), 士德:Math.ceil(total*(r.士德/s)), 立德:Math.ceil(total*(r.立德/s))};
+  } else if (t==='自訂金額') {
+    sv = {千婷:parseInt(document.getElementById('dec-custom-千婷').value)||0, 士德:parseInt(document.getElementById('dec-custom-士德').value)||0, 立德:parseInt(document.getElementById('dec-custom-立德').value)||0};
+    const sum = sv.千婷+sv.士德+sv.立德;
+    const msg = document.getElementById('dec-validation');
+    msg.style.display='block';
+    msg.className='validation '+(sum===total?'v-ok':'v-err');
+    msg.textContent = sum===total ? `✓ 合計 ${fmt(sum)} = 總金額` : `合計 ${fmt(sum)} ≠ 總金額 ${fmt(total)}`;
+  }
+  MEMBERS.forEach(m=>{ document.getElementById('dec-prev-'+m).textContent = fmt(sv[m]); });
+  window._decSplitVals = sv;
+}
+
 function showAddDecision() {
   document.getElementById('add-decision-form').style.display='block';
+  onRecurringChange();
 }
 
 async function saveDecision() {
+  if (!isAdmin) { showToast('只有千婷可以新增決議',false); return; }
   const category=document.getElementById('new-category').value;
   const title=document.getElementById('new-title').value.trim();
   const month=document.getElementById('new-month').value.trim();
   const amount=document.getElementById('new-amount').value.trim();
   const split_rule=document.getElementById('new-rule').value.trim();
   const detail=document.getElementById('new-detail').value.trim();
+  const recurring=document.getElementById('new-recurring').value;
   if (!title||!split_rule) { showToast('請填寫項目名稱和分攤原則',false); return; }
-  const { error } = await db.from('decisions').insert({category,title,month:month||null,amount:amount||null,split_rule,detail:detail||null,sort_order:decisionsData.length});
-  if (error) { showToast('儲存失敗',false); return; }
+
+  let row = {category,title,month:month||null,amount:amount||null,split_rule,detail:detail||null,recurring,sort_order:decisionsData.length};
+
+  if (recurring!=='不定期') {
+    const autoAmount = parseInt(document.getElementById('new-auto-amount').value)||0;
+    const splitType = document.getElementById('new-split-type').value;
+    if (!autoAmount) { showToast('定期項目請填寫每期總金額',false); return; }
+    const sv = window._decSplitVals || {千婷:0,士德:0,立德:0};
+    if (splitType==='自訂金額' && sv.千婷+sv.士德+sv.立德!==autoAmount) { showToast('自訂金額合計不等於總金額',false); return; }
+    row.auto_amount = autoAmount;
+    row.split_type = splitType;
+    row.payer = document.getElementById('new-payer').value;
+    row.split_千婷 = sv.千婷; row.split_士德 = sv.士德; row.split_立德 = sv.立德;
+    row.ratio_千婷 = parseInt(document.getElementById('dec-ratio-千婷').value)||1;
+    row.ratio_士德 = parseInt(document.getElementById('dec-ratio-士德').value)||1;
+    row.ratio_立德 = parseInt(document.getElementById('dec-ratio-立德').value)||1;
+  }
+
+  const { error } = await db.from('decisions').insert(row);
+  if (error) { showToast('儲存失敗：'+error.message,false); return; }
   showToast('決議已新增 📌');
   document.getElementById('add-decision-form').style.display='none';
-  ['new-title','new-month','new-amount','new-rule','new-detail'].forEach(id=>document.getElementById(id).value='');
+  ['new-title','new-month','new-amount','new-rule','new-detail','new-auto-amount'].forEach(id=>document.getElementById(id).value='');
   loadDecisions();
 }
 
 async function delDecision(id) {
+  if (!isAdmin) { showToast('只有千婷可以刪除決議',false); return; }
   if (!confirm('確定刪除此決議項目？')) return;
   await db.from('decisions').delete().eq('id',id);
   showToast('已刪除'); loadDecisions();
