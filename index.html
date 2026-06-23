@@ -521,8 +521,8 @@ tr:hover td { background:var(--bg2); }
           <div class="field"><label>🔁 定期週期</label>
             <select id="new-recurring" onchange="onRecurringChange()">
               <option value="不定期">不定期（手動記帳，不自動產生）</option>
-              <option value="每月">每月（每月最後一天自動入帳）</option>
-              <option value="每年">每年（每年最後一天自動入帳）</option>
+              <option value="每月">每月（當月第一天自動入帳）</option>
+              <option value="每年">每年（指定月份第一天自動入帳）</option>
             </select>
           </div>
 
@@ -544,6 +544,14 @@ tr:hover td { background:var(--bg2); }
           <!-- 定期：結構化自動入帳設定 -->
           <div id="recurring-detail" style="display:none;background:var(--bg);border:1.5px solid var(--mint);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
             <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin-bottom:8px">💸 自動入帳設定（金額與分攤只需設定這一次）</div>
+            <div id="charge-month-field" class="field" style="display:none"><label>📅 每年入帳月份</label>
+              <select id="new-charge-month">
+                <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+                <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+                <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+                <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+              </select>
+            </div>
             <div class="r2">
               <div class="field"><label>每期總金額（元）</label><input type="number" id="new-auto-amount" placeholder="0" min="0" oninput="onDecSplitChange()"></div>
               <div class="field"><label>代墊者（誰先付）</label>
@@ -785,27 +793,38 @@ async function autoGenerateRecurring() {
     const { data: decs } = await db.from('decisions').select('*').neq('recurring','不定期');
     if (!decs || decs.length===0) return;
     const now = new Date();
-    const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); // 2026-06
-    const y = String(now.getFullYear());
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth()+1; // 1-12
+    const ym = curYear+'-'+String(curMonth).padStart(2,'0'); // 2026-06
+    const y = String(curYear);
     // 取出已產生過的紀錄（用 source_decision_id + period_tag 比對）
     const { data: existing } = await db.from('expenses').select('source_decision_id,period_tag').not('source_decision_id','is',null);
     const done = new Set((existing||[]).map(e=>e.source_decision_id+'|'+e.period_tag));
     let generated = 0;
     for (const d of decs) {
-      const periodTag = d.recurring==='每月' ? ym : y;
-      if (done.has(d.id+'|'+periodTag)) continue; // 本期已產生，跳過
-      // 計算當期最後一天作為入帳日
-      let lastDay;
+      let periodTag, dateStr, displayPeriod;
+
       if (d.recurring==='每月') {
-        lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0);
+        // 每月：到了當月才產生，入帳日 = 當月第一天
+        periodTag = ym;
+        if (done.has(d.id+'|'+periodTag)) continue;
+        dateStr = `${curYear}-${String(curMonth).padStart(2,'0')}-01`;
+        displayPeriod = ym;
       } else {
-        lastDay = new Date(now.getFullYear(), 11, 31);
+        // 每年：只有到了「指定入帳月份」當月（或之後）才產生
+        const chargeMonth = d.charge_month || 1; // 預設 1 月
+        if (curMonth < chargeMonth) continue; // 還沒到入帳月份，跳過
+        periodTag = y;
+        if (done.has(d.id+'|'+periodTag)) continue;
+        // 入帳日 = 今年的指定月份第一天
+        dateStr = `${curYear}-${String(chargeMonth).padStart(2,'0')}-01`;
+        displayPeriod = y;
       }
-      const dateStr = lastDay.toISOString().slice(0,10);
+
       const sv = computeDecisionSplit(d);
       const { error } = await db.from('expenses').insert({
         date: dateStr,
-        name: d.title + '（' + (d.recurring==='每月'?ym:y) + ' 自動）',
+        name: d.title + '（' + displayPeriod + ' 自動）',
         amount: d.auto_amount,
         payer: d.payer || '千婷',
         split_type: d.split_type || '平均分攤',
@@ -1161,7 +1180,7 @@ function openEditExpense(id) {
   if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
   const e = expensesCache.find(x=>x.id===id);
   if (!e) return;
-  editContext = { type:'expense', id, editName:e.name, splitVals:{千婷:e['share_千婷'],士德:e['share_士德'],立德:e['share_立德']} };
+  editContext = { type:'expense', id, editName:e.name, orig:e, splitVals:{千婷:e['share_千婷'],士德:e['share_士德'],立德:e['share_立德']} };
   document.getElementById('edit-modal-title').textContent = '✏️ 編輯支出';
   document.getElementById('edit-modal-body').innerHTML = `
     <div class="field"><label>📅 日期</label><input type="date" id="ed-date" value="${e.date}"></div>
@@ -1222,7 +1241,7 @@ function openEditRepayment(id) {
   if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
   const r = repaymentsCache.find(x=>x.id===id);
   if (!r) return;
-  editContext = { type:'repayment', id, editName:`${r.from_member}→${r.to_member}` };
+  editContext = { type:'repayment', id, editName:`${r.from_member}→${r.to_member}`, orig:r };
   document.getElementById('edit-modal-title').textContent = '✏️ 編輯還款';
   document.getElementById('edit-modal-body').innerHTML = `
     <div class="field"><label>📅 日期</label><input type="date" id="ed-date" value="${r.date}"></div>
@@ -1252,7 +1271,7 @@ async function saveEdit() {
       btn.disabled=false; btn.innerHTML='儲存修改';
       showToast('分攤金額合計不等於總金額',false); return;
     }
-    const { error } = await db.from('expenses').update({
+    const newVals = {
       date: document.getElementById('ed-date').value,
       name: document.getElementById('ed-name').value.trim(),
       amount: total,
@@ -1260,21 +1279,51 @@ async function saveEdit() {
       split_type: splitType,
       'share_千婷':sv.千婷,'share_士德':sv.士德,'share_立德':sv.立德,
       note: document.getElementById('ed-note').value.trim()||null
-    }).eq('id', editContext.id);
+    };
+    const o = editContext.orig;
+    const diffs = [];
+    if (o.name!==newVals.name) diffs.push(`名稱「${o.name}」→「${newVals.name}」`);
+    if (o.amount!==newVals.amount) diffs.push(`金額 ${fmt(o.amount)} → ${fmt(newVals.amount)}`);
+    if (o.date!==newVals.date) diffs.push(`日期 ${o.date} → ${newVals.date}`);
+    if (o.payer!==newVals.payer) diffs.push(`代墊者 ${o.payer} → ${newVals.payer}`);
+    if (o.split_type!==newVals.split_type) diffs.push(`分攤方式 ${o.split_type} → ${newVals.split_type}`);
+    if (o['share_千婷']!==sv.千婷) diffs.push(`千婷 ${fmt(o['share_千婷'])}→${fmt(sv.千婷)}`);
+    if (o['share_立德']!==sv.立德) diffs.push(`立德 ${fmt(o['share_立德'])}→${fmt(sv.立德)}`);
+    if (o['share_士德']!==sv.士德) diffs.push(`士德 ${fmt(o['share_士德'])}→${fmt(sv.士德)}`);
+    if ((o.note||'')!==(newVals.note||'')) diffs.push(`備註變更`);
+    const { error } = await db.from('expenses').update(newVals).eq('id', editContext.id);
     btn.disabled=false; btn.innerHTML='儲存修改';
     if (error) { showToast('更新失敗：'+error.message,false); return; }
+    await logAudit(currentMember, '修改', '支出', newVals.name, diffs.length?diffs.join('；'):'無變更');
+    showToast('已更新 ✏️');
+    closeEditModal();
+    loadHistory();
+    return;
   } else if (editContext.type==='repayment') {
     const from_member = document.getElementById('ed-from').value;
     const to_member = document.getElementById('ed-to').value;
     if (from_member===to_member) { btn.disabled=false; btn.innerHTML='儲存修改'; showToast('付款人與收款人不能相同',false); return; }
-    const { error } = await db.from('repayments').update({
+    const newVals = {
       date: document.getElementById('ed-date').value,
       amount: parseInt(document.getElementById('ed-amount').value)||0,
       from_member, to_member,
       note: document.getElementById('ed-note').value.trim()||null
-    }).eq('id', editContext.id);
+    };
+    const o = editContext.orig;
+    const diffs = [];
+    if (o.amount!==newVals.amount) diffs.push(`金額 ${fmt(o.amount)} → ${fmt(newVals.amount)}`);
+    if (o.date!==newVals.date) diffs.push(`日期 ${o.date} → ${newVals.date}`);
+    if (o.from_member!==from_member) diffs.push(`付款人 ${o.from_member} → ${from_member}`);
+    if (o.to_member!==to_member) diffs.push(`收款人 ${o.to_member} → ${to_member}`);
+    if ((o.note||'')!==(newVals.note||'')) diffs.push(`備註變更`);
+    const { error } = await db.from('repayments').update(newVals).eq('id', editContext.id);
     btn.disabled=false; btn.innerHTML='儲存修改';
     if (error) { showToast('更新失敗：'+error.message,false); return; }
+    await logAudit(currentMember, '修改', '還款', `${from_member}→${to_member}`, diffs.length?diffs.join('；'):'無變更');
+    showToast('已更新 ✏️');
+    closeEditModal();
+    loadHistory();
+    return;
   } else if (editContext.type==='decision') {
     const title = document.getElementById('ed-title').value.trim();
     const rule = document.getElementById('ed-rule').value.trim();
@@ -1295,10 +1344,6 @@ async function saveEdit() {
     loadDecisions();
     return;
   }
-  await logAudit(currentMember, '修改', editContext.type==='expense'?'支出':'還款', editContext.editName||'', '編輯內容');
-  showToast('已更新 ✏️');
-  closeEditModal();
-  loadHistory();
 }
 
 function closeEditModal() {
@@ -1384,6 +1429,7 @@ function onRecurringChange() {
   const isRecurring = r!=='不定期';
   document.getElementById('recurring-detail').style.display = isRecurring ? 'block' : 'none';
   document.getElementById('irregular-section').style.display = isRecurring ? 'none' : 'block';
+  document.getElementById('charge-month-field').style.display = (r==='每年') ? 'block' : 'none';
   if (isRecurring) onDecSplitChange();
 }
 function onDecSplitChange() {
@@ -1439,8 +1485,12 @@ async function saveDecision() {
     row.ratio_千婷 = parseInt(document.getElementById('dec-ratio-千婷').value)||1;
     row.ratio_士德 = parseInt(document.getElementById('dec-ratio-士德').value)||1;
     row.ratio_立德 = parseInt(document.getElementById('dec-ratio-立德').value)||1;
+    // 每年項目記錄入帳月份
+    if (recurring==='每年') {
+      row.charge_month = parseInt(document.getElementById('new-charge-month').value)||1;
+    }
     // 自動產生顯示文字
-    row.month = recurring;
+    row.month = recurring==='每年' ? `每年${row.charge_month}月` : recurring;
     row.amount = fmt(autoAmount) + '／' + (recurring==='每月'?'月':'年');
     row.split_rule = splitType;
   } else {
