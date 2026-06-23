@@ -484,23 +484,29 @@ tr:hover td { background:var(--bg2); }
                 <option value="固定雜項">📦 固定雜項</option>
               </select>
             </div>
-            <div class="field"><label>項目名稱</label><input type="text" id="new-title" placeholder="如：過年聚餐"></div>
-          </div>
-          <div class="r2">
-            <div class="field"><label>月份說明</label><input type="text" id="new-month" placeholder="如：1月、每月、不定期"></div>
-            <div class="field"><label>預估費用（文字說明）</label><input type="text" id="new-amount" placeholder="如：15,000元"></div>
+            <div class="field"><label>項目名稱</label><input type="text" id="new-title" placeholder="如：過年聚餐、健保費"></div>
           </div>
 
           <div class="field"><label>🔁 定期週期</label>
             <select id="new-recurring" onchange="onRecurringChange()">
-              <option value="不定期">不定期（不自動產生）</option>
+              <option value="不定期">不定期（手動記帳，不自動產生）</option>
               <option value="每月">每月（每月最後一天自動入帳）</option>
               <option value="每年">每年（每年最後一天自動入帳）</option>
             </select>
           </div>
 
+          <!-- 不定期：純文字說明 -->
+          <div id="irregular-section">
+            <div class="r2">
+              <div class="field"><label>月份說明</label><input type="text" id="new-month" placeholder="如：1月、不定期"></div>
+              <div class="field"><label>預估費用</label><input type="text" id="new-amount" placeholder="如：15,000元、視實際發生"></div>
+            </div>
+            <div class="field"><label>分攤原則</label><input type="text" id="new-rule" placeholder="如：AA均分、固定均分"></div>
+          </div>
+
+          <!-- 定期：結構化自動入帳設定 -->
           <div id="recurring-detail" style="display:none;background:var(--bg);border:1.5px solid var(--mint);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
-            <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin-bottom:8px">💸 自動入帳設定</div>
+            <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin-bottom:8px">💸 自動入帳設定（金額與分攤只需設定這一次）</div>
             <div class="r2">
               <div class="field"><label>每期總金額（元）</label><input type="number" id="new-auto-amount" placeholder="0" min="0" oninput="onDecSplitChange()"></div>
               <div class="field"><label>代墊者（誰先付）</label>
@@ -537,10 +543,10 @@ tr:hover td { background:var(--bg2); }
               <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="dec-prev-士德">NT$0</span></div>
               <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="dec-prev-立德">NT$0</span></div>
             </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:8px">💡 顯示文字會自動產生，無需另外填寫</div>
           </div>
 
-          <div class="field"><label>分攤原則（文字說明，顯示用）</label><input type="text" id="new-rule" placeholder="如：AA均分、固定均分"></div>
-          <div class="field"><label>備註說明</label><textarea id="new-detail" placeholder="細節說明…" style="min-height:48px"></textarea></div>
+          <div class="field"><label>備註說明（選填）</label><textarea id="new-detail" placeholder="細節說明…" style="min-height:48px"></textarea></div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="saveDecision()">儲存</button>
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('add-decision-form').style.display='none'">取消</button>
@@ -1249,8 +1255,10 @@ function renderDecisionItems(cat) {
 // 決議分攤試算（新增表單用）
 function onRecurringChange() {
   const r = document.getElementById('new-recurring').value;
-  document.getElementById('recurring-detail').style.display = r==='不定期' ? 'none' : 'block';
-  if (r!=='不定期') onDecSplitChange();
+  const isRecurring = r!=='不定期';
+  document.getElementById('recurring-detail').style.display = isRecurring ? 'block' : 'none';
+  document.getElementById('irregular-section').style.display = isRecurring ? 'none' : 'block';
+  if (isRecurring) onDecSplitChange();
 }
 function onDecSplitChange() {
   const t = document.getElementById('new-split-type').value;
@@ -1285,16 +1293,14 @@ async function saveDecision() {
   if (!isAdmin) { showToast('只有千婷可以新增決議',false); return; }
   const category=document.getElementById('new-category').value;
   const title=document.getElementById('new-title').value.trim();
-  const month=document.getElementById('new-month').value.trim();
-  const amount=document.getElementById('new-amount').value.trim();
-  const split_rule=document.getElementById('new-rule').value.trim();
   const detail=document.getElementById('new-detail').value.trim();
   const recurring=document.getElementById('new-recurring').value;
-  if (!title||!split_rule) { showToast('請填寫項目名稱和分攤原則',false); return; }
+  if (!title) { showToast('請填寫項目名稱',false); return; }
 
-  let row = {category,title,month:month||null,amount:amount||null,split_rule,detail:detail||null,recurring,sort_order:decisionsData.length};
+  let row = {category,title,detail:detail||null,recurring,sort_order:decisionsData.length};
 
   if (recurring!=='不定期') {
+    // 定期：金額分攤結構化，顯示文字自動產生
     const autoAmount = parseInt(document.getElementById('new-auto-amount').value)||0;
     const splitType = document.getElementById('new-split-type').value;
     if (!autoAmount) { showToast('定期項目請填寫每期總金額',false); return; }
@@ -1307,6 +1313,19 @@ async function saveDecision() {
     row.ratio_千婷 = parseInt(document.getElementById('dec-ratio-千婷').value)||1;
     row.ratio_士德 = parseInt(document.getElementById('dec-ratio-士德').value)||1;
     row.ratio_立德 = parseInt(document.getElementById('dec-ratio-立德').value)||1;
+    // 自動產生顯示文字
+    row.month = recurring;
+    row.amount = fmt(autoAmount) + '／' + (recurring==='每月'?'月':'年');
+    row.split_rule = splitType;
+  } else {
+    // 不定期：純文字
+    const month=document.getElementById('new-month').value.trim();
+    const amount=document.getElementById('new-amount').value.trim();
+    const split_rule=document.getElementById('new-rule').value.trim();
+    if (!split_rule) { showToast('請填寫分攤原則',false); return; }
+    row.month = month||null;
+    row.amount = amount||null;
+    row.split_rule = split_rule;
   }
 
   const { error } = await db.from('decisions').insert(row);
@@ -1314,6 +1333,8 @@ async function saveDecision() {
   showToast('決議已新增 📌');
   document.getElementById('add-decision-form').style.display='none';
   ['new-title','new-month','new-amount','new-rule','new-detail','new-auto-amount'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('new-recurring').value='不定期';
+  onRecurringChange();
   loadDecisions();
 }
 
