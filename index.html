@@ -263,8 +263,32 @@ tr:hover td { background:var(--bg2); }
 .theme-toggle { background:var(--bg2); border:1.5px solid var(--border2); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; color:var(--text2); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:5px; white-space:nowrap; }
 .theme-toggle:hover { background:var(--bg3); color:var(--text); }
 
+/* ── Desktop/Mobile visibility ── */
+.mobile-only { display:none; }
+.desktop-only { display:block; }
+/* 桌機緊湊表格：縮小字體與間距，讓所有欄位一覽無遺不需滑動 */
+.compact-table { font-size:12px; table-layout:auto; }
+.compact-table th, .compact-table td { padding:7px 6px; }
+.compact-table th { font-size:10px; }
+/* 支出卡片（手機） */
+.exp-card { background:var(--bg); border:1.5px solid var(--border); border-radius:var(--radius); padding:0.85rem; margin-bottom:0.7rem; box-shadow:var(--shadow-sm); }
+.exp-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; }
+.exp-card-name { font-size:15px; font-weight:700; }
+.exp-card-date { font-size:11px; color:var(--text3); margin-top:2px; }
+.exp-card-amount { font-size:17px; font-weight:700; color:var(--pink); white-space:nowrap; }
+.exp-card-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+.exp-card-shares { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; background:var(--bg2); border-radius:var(--radius); padding:8px; }
+.exp-card-share { text-align:center; }
+.exp-card-share .scs-name { display:flex; align-items:center; justify-content:center; gap:3px; font-size:11px; color:var(--text2); margin-bottom:2px; }
+.exp-card-share .scs-amt { font-size:13px; font-weight:700; }
+.exp-card-bottom { display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px; }
+.exp-card-note { font-size:12px; color:var(--text2); flex:1; }
+.exp-card-actions { display:flex; gap:4px; flex-shrink:0; }
+
 /* ── Responsive (mobile) ── */
 @media (max-width: 640px) {
+  .mobile-only { display:block; }
+  .desktop-only { display:none; }
   .content { padding:0.85rem; }
   .topbar { padding:0 0.85rem; height:54px; }
   .topbar-title { font-size:14px; }
@@ -275,6 +299,9 @@ tr:hover td { background:var(--bg2); }
   /* 表單欄位改為單欄，避免重疊 */
   .r2, .r3 { grid-template-columns:1fr; gap:0; }
   .card { padding:1rem; }
+  /* 修正 iOS 日期欄位超出容器 */
+  .field input[type="date"] { max-width:100%; -webkit-appearance:none; appearance:none; min-height:42px; text-align:center; }
+  .field input, .field select, .field textarea { max-width:100%; }
   .card-title { font-size:14px; }
   .tab { padding:11px 11px; font-size:12px; }
   .tab-icon { margin-right:3px; }
@@ -397,8 +424,8 @@ tr:hover td { background:var(--bg2); }
         <div id="split-preview" class="split-preview" style="display:none">
           <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 應付金額預覽</div>
           <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="prev-千婷">—</span></div>
-          <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="prev-士德">—</span></div>
           <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="prev-立德">—</span></div>
+          <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="prev-士德">—</span></div>
         </div>
         <div class="field">
           <label>🧾 發票／購買證明（選填）</label>
@@ -441,26 +468,28 @@ tr:hover td { background:var(--bg2); }
         <div class="card-title">🧾 支出明細</div>
         <div id="exp-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
         <div id="exp-history-content" style="display:none">
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>日期</th><th>名稱</th><th>總額</th><th>代墊</th><th>分攤</th><th>婷</th><th>士</th><th>立</th><th>發票</th><th>備註</th><th></th></tr></thead>
+          <div class="table-wrap desktop-only">
+            <table class="compact-table">
+              <thead><tr><th>日期</th><th>名稱</th><th>總額</th><th>代墊</th><th>分攤</th><th>婷</th><th>立</th><th>士</th><th>票</th><th></th></tr></thead>
               <tbody id="exp-table-body"></tbody>
             </table>
-            <div id="exp-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出紀錄</div></div>
           </div>
+          <div class="card-list mobile-only" id="exp-card-list"></div>
+          <div id="exp-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出紀錄</div></div>
         </div>
       </div>
       <div class="card">
         <div class="card-title">💸 還款紀錄</div>
         <div id="rep-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
         <div id="rep-history-content" style="display:none">
-          <div class="table-wrap">
+          <div class="table-wrap desktop-only">
             <table>
               <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
               <tbody id="rep-table-body"></tbody>
             </table>
-            <div id="rep-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無還款紀錄</div></div>
           </div>
+          <div class="card-list mobile-only" id="rep-card-list"></div>
+          <div id="rep-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無還款紀錄</div></div>
         </div>
       </div>
     </div>
@@ -501,7 +530,13 @@ tr:hover td { background:var(--bg2); }
               <div class="field"><label>月份說明</label><input type="text" id="new-month" placeholder="如：1月、不定期"></div>
               <div class="field"><label>預估費用</label><input type="text" id="new-amount" placeholder="如：15,000元、視實際發生"></div>
             </div>
-            <div class="field"><label>分攤原則</label><input type="text" id="new-rule" placeholder="如：AA均分、固定均分"></div>
+            <div class="field"><label>分攤原則</label>
+              <select id="new-rule">
+                <option value="平均分攤">平均分攤</option>
+                <option value="自訂比例">自訂比例</option>
+                <option value="自訂金額">自訂金額</option>
+              </select>
+            </div>
           </div>
 
           <!-- 定期：結構化自動入帳設定 -->
@@ -540,8 +575,8 @@ tr:hover td { background:var(--bg2); }
             <div class="split-preview" style="margin-bottom:0">
               <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 自動入帳時的應付金額</div>
               <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="dec-prev-千婷">NT$0</span></div>
-              <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="dec-prev-士德">NT$0</span></div>
               <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="dec-prev-立德">NT$0</span></div>
+              <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="dec-prev-士德">NT$0</span></div>
             </div>
             <div style="font-size:11px;color:var(--text3);margin-top:8px">💡 顯示文字會自動產生，無需另外填寫</div>
           </div>
@@ -571,9 +606,18 @@ tr:hover td { background:var(--bg2); }
         </div>
 
         <div class="card">
-          <div class="card-title">📅 每月固定應付金額</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">💰 我每月給父母（生活費）</div>
+            <button id="living-edit-btn" class="btn btn-ghost btn-sm" onclick="toggleLivingEdit()" style="display:none">✏️ 編輯</button>
+          </div>
           <div class="monthly-grid" id="monthly-grid"></div>
-          <div style="font-size:12px;color:var(--text3);margin-top:4px">* 依俱樂部決議，每月固定分擔金額</div>
+          <div id="living-edit-area" style="display:none"></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:8px">💡 各自直接轉帳給父母，不列入共同結算</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎯 俱樂部決議・我的分攤預算預估</div>
+          <div id="budget-estimate"></div>
         </div>
 
         <div class="card">
@@ -982,26 +1026,54 @@ async function loadHistory() {
   repaymentsCache = reps||[];
   const tagClass={'平均分攤':'tag-avg','自訂比例':'tag-ratio','自訂金額':'tag-custom'};
   const tbody=document.getElementById('exp-table-body');
+  const expCards=document.getElementById('exp-card-list');
   const expEmpty=document.getElementById('exp-empty');
-  if(!exps||exps.length===0){tbody.innerHTML='';expEmpty.style.display='block';}
+  // 日期縮短顯示（去掉年份前兩碼）
+  const shortDate = d => d ? d.slice(2) : d;
+  if(!exps||exps.length===0){tbody.innerHTML='';expCards.innerHTML='';expEmpty.style.display='block';}
   else {
     expEmpty.style.display='none';
+    // 桌機表格：婷 → 立 → 士
     tbody.innerHTML=exps.map(e=>`<tr>
-      <td>${e.date}</td><td class="wrap" style="font-weight:600">${e.name}</td>
-      <td style="font-weight:700;color:var(--pink)">${fmt(e.amount)}</td>
-      <td><div style="display:flex;align-items:center;gap:4px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:20px;height:20px;font-size:9px">${AV_KEY[e.payer]}</div>${e.payer}</div></td>
+      <td style="white-space:nowrap">${shortDate(e.date)}</td><td class="wrap" style="font-weight:600;min-width:80px">${e.name}</td>
+      <td style="font-weight:700;color:var(--pink);white-space:nowrap">${fmt(e.amount)}</td>
+      <td><div style="display:flex;align-items:center;gap:3px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div></div></td>
       <td><span class="tag ${tagClass[e.split_type]||''}">${e.split_type}</span></td>
-      <td>${fmt(e['share_千婷'])}</td><td>${fmt(e['share_士德'])}</td><td>${fmt(e['share_立德'])}</td>
-      <td>${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="發票">`:'-'}</td>
-      <td class="wrap" style="color:var(--text2);font-size:12px;max-width:140px">${e.note||'—'}</td>
+      <td style="white-space:nowrap">${fmt(e['share_千婷'])}</td><td style="white-space:nowrap">${fmt(e['share_立德'])}</td><td style="white-space:nowrap">${fmt(e['share_士德'])}</td>
+      <td>${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="票">`:'-'}</td>
       <td style="white-space:nowrap"><button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditExpense('${e.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delExpense('${e.id}')">🗑</button></td>
     </tr>`).join('');
+    // 手機卡片：婷 → 立 → 士
+    expCards.innerHTML=exps.map(e=>`<div class="exp-card">
+      <div class="exp-card-top">
+        <div>
+          <div class="exp-card-name">${e.name}</div>
+          <div class="exp-card-date">📅 ${e.date}</div>
+        </div>
+        <div class="exp-card-amount">${fmt(e.amount)}</div>
+      </div>
+      <div class="exp-card-meta">
+        <span style="display:flex;align-items:center;gap:3px;font-size:12px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div>${e.payer} 代墊</span>
+        <span class="tag ${tagClass[e.split_type]||''}">${e.split_type}</span>
+        ${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="票">`:''}
+      </div>
+      <div class="exp-card-shares">
+        <div class="exp-card-share"><div class="scs-name"><span class="avatar av-婷" style="width:16px;height:16px;font-size:8px">婷</span>千婷</div><div class="scs-amt">${fmt(e['share_千婷'])}</div></div>
+        <div class="exp-card-share"><div class="scs-name"><span class="avatar av-立" style="width:16px;height:16px;font-size:8px">立</span>立德</div><div class="scs-amt">${fmt(e['share_立德'])}</div></div>
+        <div class="exp-card-share"><div class="scs-name"><span class="avatar av-士" style="width:16px;height:16px;font-size:8px">士</span>士德</div><div class="scs-amt">${fmt(e['share_士德'])}</div></div>
+      </div>
+      <div class="exp-card-bottom">
+        <div class="exp-card-note">${e.note?'📌 '+e.note:''}</div>
+        ${isAdmin?`<div class="exp-card-actions"><button class="btn btn-ghost btn-sm" onclick="openEditExpense('${e.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delExpense('${e.id}')">🗑</button></div>`:''}
+      </div>
+    </div>`).join('');
   }
   document.getElementById('exp-history-loading').style.display='none';
   document.getElementById('exp-history-content').style.display='block';
   const rtbody=document.getElementById('rep-table-body');
+  const repCards=document.getElementById('rep-card-list');
   const repEmpty=document.getElementById('rep-empty');
-  if(!reps||reps.length===0){rtbody.innerHTML='';repEmpty.style.display='block';}
+  if(!reps||reps.length===0){rtbody.innerHTML='';repCards.innerHTML='';repEmpty.style.display='block';}
   else {
     repEmpty.style.display='none';
     rtbody.innerHTML=reps.map(r=>`<tr>
@@ -1010,6 +1082,19 @@ async function loadHistory() {
       <td style="color:var(--text2);font-size:12px">${r.note||'—'}</td>
       <td style="white-space:nowrap"><button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditRepayment('${r.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepayment('${r.id}')">🗑</button></td>
     </tr>`).join('');
+    repCards.innerHTML=reps.map(r=>`<div class="exp-card">
+      <div class="exp-card-top">
+        <div>
+          <div class="exp-card-name">${r.from_member} → ${r.to_member}</div>
+          <div class="exp-card-date">📅 ${r.date}</div>
+        </div>
+        <div class="exp-card-amount" style="color:var(--mint-dark)">${fmt(r.amount)}</div>
+      </div>
+      <div class="exp-card-bottom">
+        <div class="exp-card-note">${r.note?'📌 '+r.note:''}</div>
+        ${isAdmin?`<div class="exp-card-actions"><button class="btn btn-ghost btn-sm" onclick="openEditRepayment('${r.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delRepayment('${r.id}')">🗑</button></div>`:''}
+      </div>
+    </div>`).join('');
   }
   document.getElementById('rep-history-loading').style.display='none';
   document.getElementById('rep-history-content').style.display='block';
@@ -1058,8 +1143,8 @@ function openEditExpense(id) {
     <div id="ed-custom" style="display:${e.split_type==='平均分攤'?'none':'block'}">
       <div class="r3">
         <div class="field"><label>千婷</label><input type="number" id="ed-s-千婷" value="${e['share_千婷']}" oninput="edValidate()"></div>
-        <div class="field"><label>士德</label><input type="number" id="ed-s-士德" value="${e['share_士德']}" oninput="edValidate()"></div>
         <div class="field"><label>立德</label><input type="number" id="ed-s-立德" value="${e['share_立德']}" oninput="edValidate()"></div>
+        <div class="field"><label>士德</label><input type="number" id="ed-s-士德" value="${e['share_士德']}" oninput="edValidate()"></div>
       </div>
       <div id="ed-validation" class="validation" style="display:none"></div>
     </div>
@@ -1332,7 +1417,8 @@ async function saveDecision() {
   if (error) { showToast('儲存失敗：'+error.message,false); return; }
   showToast('決議已新增 📌');
   document.getElementById('add-decision-form').style.display='none';
-  ['new-title','new-month','new-amount','new-rule','new-detail','new-auto-amount'].forEach(id=>document.getElementById(id).value='');
+  ['new-title','new-month','new-amount','new-detail','new-auto-amount'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('new-rule').value='平均分攤';
   document.getElementById('new-recurring').value='不定期';
   onRecurringChange();
   loadDecisions();
@@ -1390,6 +1476,8 @@ async function seedDecisions() {
 }
 
 // ── Profile ───────────────────────────────────────────
+let livingCostsCache = [];
+
 async function loadProfile() {
   document.getElementById('profile-loading').style.display='block';
   document.getElementById('profile-content').style.display='none';
@@ -1398,25 +1486,19 @@ async function loadProfile() {
   document.getElementById('profile-name').textContent = currentMember;
   document.getElementById('profile-email').textContent = currentUser.email;
   document.getElementById('profile-role').textContent = isAdmin ? '👑 管理員' : '👤 成員';
+  document.getElementById('living-edit-btn').style.display = isAdmin ? 'inline-flex' : 'none';
 
-  // Monthly fixed
-  const monthly = MONTHLY_FIXED[currentMember]||[];
-  const totalMonthly = monthly.reduce((s,x)=>s+x.amount,0);
-  document.getElementById('monthly-grid').innerHTML = [
-    ...monthly.map(m=>`<div class="monthly-item">
-      <div class="mi-label">${m.label}</div>
-      <div class="mi-amount">${m.amount===0?'免付':fmt(m.amount)}</div>
-      <div class="mi-note">${m.note}</div>
-    </div>`),
-    `<div class="monthly-item" style="background:linear-gradient(135deg,var(--pink-light),var(--lavender-light));border-color:var(--pink)">
-      <div class="mi-label">每月合計</div>
-      <div class="mi-amount" style="color:var(--pink-dark)">${fmt(totalMonthly)}</div>
-      <div class="mi-note">固定應付金額</div>
-    </div>`
-  ].join('');
+  // 生活費（從資料庫讀取，可編輯）
+  const { data: living } = await db.from('living_costs').select('*').eq('member', currentMember).order('sort_order');
+  livingCostsCache = living || [];
+  renderLivingCosts();
 
-  // Stats this year
-  const thisYear = new Date().getFullYear();
+  // 決議預算預估
+  const { data: decs } = await db.from('decisions').select('*').order('sort_order');
+  renderBudgetEstimate(decs||[]);
+
+  // 今年度統計
+  const thisYear = String(new Date().getFullYear());
   const [{data:exps},{data:reps}] = await Promise.all([
     db.from('expenses').select('*'),
     db.from('repayments').select('*')
@@ -1428,14 +1510,13 @@ async function loadProfile() {
   const totalSent = myReps.filter(r=>r.from_member===currentMember).reduce((s,r)=>s+r.amount,0);
   const totalRecv = myReps.filter(r=>r.to_member===currentMember).reduce((s,r)=>s+r.amount,0);
   const net = (totalPaid-totalOwed)+totalSent-totalRecv;
-
   document.getElementById('profile-stats').innerHTML = `
     <div class="stat-box stat-pink"><div class="sb-val">${fmt(totalPaid)}</div><div class="sb-label">今年累計代墊</div></div>
     <div class="stat-box stat-mint"><div class="sb-val">${fmt(totalOwed)}</div><div class="sb-label">今年應分攤</div></div>
-    <div class="stat-box stat-lav"><div class="sb-val ${net>=0?'':''}' style="color:${net>=0?'var(--green-dark)':'var(--red-dark)'}">${fmt(Math.abs(net))}</div><div class="sb-label">${net>=0?'應收回':'應付出'}</div></div>
+    <div class="stat-box stat-lav"><div class="sb-val" style="color:${net>=0?'var(--green-dark)':'var(--red-dark)'}">${fmt(Math.abs(net))}</div><div class="sb-label">${net>=0?'應收回':'應付出'}</div></div>
   `;
 
-  // My recent records
+  // 我的收支明細
   const myExpRows = (exps||[]).filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).slice(0,10);
   document.getElementById('my-history').innerHTML = myExpRows.length===0
     ? '<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無相關紀錄</div></div>'
@@ -1451,6 +1532,110 @@ async function loadProfile() {
 
   document.getElementById('profile-loading').style.display='none';
   document.getElementById('profile-content').style.display='block';
+}
+
+function renderLivingCosts() {
+  const totalMonthly = livingCostsCache.reduce((s,x)=>s+(x.amount||0),0);
+  document.getElementById('monthly-grid').innerHTML = [
+    ...livingCostsCache.map(m=>`<div class="monthly-item">
+      <div class="mi-label">${m.label}</div>
+      <div class="mi-amount">${m.amount===0?'免付':fmt(m.amount)}</div>
+      <div class="mi-note">${m.note||''}</div>
+    </div>`),
+    `<div class="monthly-item" style="background:linear-gradient(135deg,var(--pink-light),var(--lavender-light));border-color:var(--pink)">
+      <div class="mi-label">每月合計</div>
+      <div class="mi-amount" style="color:var(--pink-dark)">${fmt(totalMonthly)}</div>
+      <div class="mi-note">固定應付金額</div>
+    </div>`
+  ].join('');
+}
+
+let livingEditMode = false;
+function toggleLivingEdit() {
+  livingEditMode = !livingEditMode;
+  const area = document.getElementById('living-edit-area');
+  const btn = document.getElementById('living-edit-btn');
+  if (livingEditMode) {
+    btn.textContent = '✖️ 收起';
+    area.style.display = 'block';
+    area.innerHTML = livingCostsCache.map(m=>`
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:10px;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px">${m.label}</div>
+        <div class="r2">
+          <div class="field" style="margin-bottom:0"><label>金額</label><input type="number" id="lc-amt-${m.id}" value="${m.amount}"></div>
+          <div class="field" style="margin-bottom:0"><label>備註</label><input type="text" id="lc-note-${m.id}" value="${(m.note||'').replace(/"/g,'&quot;')}"></div>
+        </div>
+      </div>`).join('') + `<button class="btn btn-primary btn-sm" onclick="saveLivingCosts()">💾 儲存生活費</button>`;
+  } else {
+    btn.textContent = '✏️ 編輯';
+    area.style.display = 'none';
+  }
+}
+
+async function saveLivingCosts() {
+  if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
+  for (const m of livingCostsCache) {
+    const amt = parseInt(document.getElementById('lc-amt-'+m.id).value)||0;
+    const note = document.getElementById('lc-note-'+m.id).value.trim();
+    await db.from('living_costs').update({amount:amt, note:note||null}).eq('id', m.id);
+  }
+  showToast('生活費已更新 💰');
+  livingEditMode = false;
+  loadProfile();
+}
+
+// 決議預算預估：分定期/不定期/其他，算月預算與年預算
+function renderBudgetEstimate(decs) {
+  const m = currentMember;
+  // 分類：定期(每月/每年有金額) vs 不定期(無自動金額)
+  let monthlyBudget = 0, yearlyBudget = 0;
+  const regularRows = [], irregularRows = [];
+  decs.forEach(d => {
+    const sv = (d.recurring && d.recurring!=='不定期' && d.auto_amount) ? computeDecisionSplit(d) : null;
+    const myShare = sv ? sv[m] : 0;
+    if (d.recurring==='每月' && myShare>0) {
+      monthlyBudget += myShare;
+      yearlyBudget += myShare*12;
+      regularRows.push({title:d.title, period:'每月', mine:myShare, yearly:myShare*12});
+    } else if (d.recurring==='每年' && myShare>0) {
+      yearlyBudget += myShare;
+      monthlyBudget += Math.ceil(myShare/12);
+      regularRows.push({title:d.title, period:'每年', mine:myShare, yearly:myShare});
+    } else {
+      // 不定期或無金額
+      irregularRows.push({title:d.title, rule:d.split_rule||'—', amount:d.amount||'視實際發生'});
+    }
+  });
+
+  const el = document.getElementById('budget-estimate');
+  el.innerHTML = `
+    <div class="stat-row" style="margin-bottom:1rem">
+      <div class="stat-box stat-pink"><div class="sb-val">${fmt(monthlyBudget)}</div><div class="sb-label">每月預算（我的分攤）</div></div>
+      <div class="stat-box stat-lav"><div class="sb-val">${fmt(yearlyBudget)}</div><div class="sb-label">每年預算（我的分攤）</div></div>
+    </div>
+    ${regularRows.length>0 ? `
+      <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin:12px 0 6px">🔁 定期分攤項目</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>項目</th><th>週期</th><th>我的分攤</th><th>年度</th></tr></thead>
+        <tbody>${regularRows.map(r=>`<tr>
+          <td style="font-weight:600">${r.title}</td>
+          <td><span class="tag tag-avg">${r.period}</span></td>
+          <td style="font-weight:700;color:var(--pink)">${fmt(r.mine)}</td>
+          <td style="color:var(--text2)">${fmt(r.yearly)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : ''}
+    ${irregularRows.length>0 ? `
+      <div style="font-size:13px;font-weight:700;color:var(--peach);margin:16px 0 6px">📋 不定期／其他項目（金額待實際發生）</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>項目</th><th>分攤原則</th><th>預估</th></tr></thead>
+        <tbody>${irregularRows.map(r=>`<tr>
+          <td style="font-weight:600">${r.title}</td>
+          <td style="color:var(--text2)">${r.rule}</td>
+          <td style="color:var(--text3)">${r.amount}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : ''}
+    <div style="font-size:12px;color:var(--text3);margin-top:10px">💡 每年預算 = 每月項目×12 + 每年項目；不定期項目因金額不固定，僅列原則供參考</div>
+  `;
 }
 
 // ── Modal ─────────────────────────────────────────────
