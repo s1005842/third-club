@@ -26,27 +26,27 @@
 }
 /* 中性易讀風 */
 body[data-theme="neutral"] {
-  --pink: #2563EB; --pink-light: #EFF4FF; --pink-dark: #1D4ED8;
-  --mint: #0D9488; --mint-light: #F0FDFA; --mint-dark: #0F766E;
-  --peach: #D97706; --peach-light: #FFFBEB;
-  --lavender: #475569; --lavender-light: #F1F5F9;
-  --yellow: #CA8A04; --yellow-light: #FEFCE8;
-  --green: #16A34A; --green-light: #F0FDF4; --green-dark: #15803D;
-  --red: #DC2626; --red-light: #FEF2F2; --red-dark: #B91C1C;
-  --bg: #FFFFFF; --bg2: #F8FAFC; --bg3: #F1F5F9;
-  --text: #0F172A; --text2: #475569; --text3: #94A3B8;
-  --border: rgba(15,23,42,0.10); --border2: rgba(15,23,42,0.20);
-  --radius: 10px; --radius-lg: 14px; --radius-xl: 18px;
-  --shadow: 0 2px 12px rgba(15,23,42,0.08);
-  --shadow-sm: 0 1px 4px rgba(15,23,42,0.06);
-  --login-grad: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%);
-  --primary-grad: #2563EB;
-  --accent: #2563EB;
+  --pink: #6366F1; --pink-light: #EEF0FF; --pink-dark: #4F46E5;
+  --mint: #14B8A6; --mint-light: #F0FDFA; --mint-dark: #0D9488;
+  --peach: #F59E0B; --peach-light: #FFFBEB;
+  --lavender: #8B5CF6; --lavender-light: #F5F3FF;
+  --yellow: #EAB308; --yellow-light: #FEFCE8;
+  --green: #22C55E; --green-light: #F0FDF4; --green-dark: #16A34A;
+  --red: #EF4444; --red-light: #FEF2F2; --red-dark: #DC2626;
+  --bg: #FFFFFF; --bg2: #F8FAFC; --bg3: #EEF2F7;
+  --text: #1E293B; --text2: #64748B; --text3: #94A3B8;
+  --border: rgba(100,116,139,0.16); --border2: rgba(100,116,139,0.28);
+  --radius: 12px; --radius-lg: 16px; --radius-xl: 20px;
+  --shadow: 0 2px 14px rgba(100,116,139,0.10);
+  --shadow-sm: 0 1px 5px rgba(100,116,139,0.07);
+  --login-grad: linear-gradient(135deg, #EEF2F7 0%, #E0E7FF 100%);
+  --primary-grad: linear-gradient(135deg, #6366F1, #8B5CF6);
+  --accent: #6366F1;
 }
 body[data-theme="neutral"] .login-emoji { animation:none; }
-body[data-theme="neutral"] .av-婷 { background:#2563EB; }
-body[data-theme="neutral"] .av-士 { background:#0D9488; }
-body[data-theme="neutral"] .av-立 { background:#D97706; }
+body[data-theme="neutral"] .av-婷 { background:linear-gradient(135deg,#818CF8,#6366F1); }
+body[data-theme="neutral"] .av-士 { background:linear-gradient(135deg,#2DD4BF,#14B8A6); }
+body[data-theme="neutral"] .av-立 { background:linear-gradient(135deg,#FBBF24,#F59E0B); }
 body[data-theme="neutral"] .mc-婷 { background:#F8FAFC; border-color:var(--border2); }
 body[data-theme="neutral"] .mc-士 { background:#F8FAFC; border-color:var(--border2); }
 body[data-theme="neutral"] .mc-立 { background:#F8FAFC; border-color:var(--border2); }
@@ -263,6 +263,18 @@ tr:hover td { background:var(--bg2); }
 .theme-toggle { background:var(--bg2); border:1.5px solid var(--border2); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; color:var(--text2); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:5px; white-space:nowrap; }
 .theme-toggle:hover { background:var(--bg3); color:var(--text); }
 
+/* ── Collapsible cards ── */
+.collapsible-head { display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; }
+.collapse-arrow { font-size:16px; color:var(--text2); transition:transform 0.2s; }
+.collapse-arrow.open { transform:rotate(180deg); }
+
+/* ── Budget + Decisions side by side ── */
+.budget-decision-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; align-items:start; }
+
+/* 修改紅點註記 */
+.edited-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--red); margin-left:5px; vertical-align:middle; }
+.edited-label { font-size:10px; color:var(--red-dark); background:var(--red-light); padding:1px 6px; border-radius:10px; margin-left:5px; font-weight:600; }
+
 /* ── Desktop/Mobile visibility ── */
 .mobile-only { display:none; }
 .desktop-only { display:block; }
@@ -298,6 +310,7 @@ tr:hover td { background:var(--bg2); }
   .user-avatar { width:28px; height:28px; }
   /* 表單欄位改為單欄，避免重疊 */
   .r2, .r3 { grid-template-columns:1fr; gap:0; }
+  .budget-decision-grid { grid-template-columns:1fr; }
   .card { padding:1rem; }
   /* 修正 iOS 日期欄位超出容器 */
   .field input[type="date"] { max-width:100%; -webkit-appearance:none; appearance:none; min-height:42px; text-align:center; }
@@ -362,10 +375,7 @@ tr:hover td { background:var(--bg2); }
     <button class="tab" onclick="switchTab('expense')"><span class="tab-icon">➕</span>新增支出</button>
     <button class="tab" onclick="switchTab('repay')"><span class="tab-icon">💸</span>新增還款</button>
     <button class="tab" onclick="switchTab('history')"><span class="tab-icon">📋</span>明細記錄</button>
-    <button class="tab" onclick="switchTab('decisions')"><span class="tab-icon">📌</span>俱樂部決議</button>
     <button class="tab" onclick="switchTab('profile')"><span class="tab-icon">👤</span>個人頁面</button>
-    <button class="tab" onclick="switchTab('trash')"><span class="tab-icon">🗑</span>垃圾桶</button>
-    <button class="tab" onclick="switchTab('audit')"><span class="tab-icon">📜</span>操作紀錄</button>
   </div>
   <div class="content">
 
@@ -466,6 +476,37 @@ tr:hover td { background:var(--bg2); }
 
     <!-- History -->
     <div id="panel-history" class="panel">
+      <!-- 操作紀錄（所有人可見，預設收合） -->
+      <div class="card collapsible-card" style="margin-bottom:1rem">
+        <div class="collapsible-head" onclick="toggleCollapse('audit')">
+          <div class="card-title" style="margin-bottom:0">📜 操作紀錄</div>
+          <span class="collapse-arrow" id="audit-arrow">▾</span>
+        </div>
+        <div id="audit-body" class="collapsible-body" style="display:none">
+          <div style="font-size:12px;color:var(--text3);margin:8px 0">記錄所有新增、修改、刪除、還原動作，每走過必留下痕跡。</div>
+          <div id="audit-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+          <div id="audit-content" style="display:none"><div id="audit-list"></div></div>
+        </div>
+      </div>
+
+      <!-- 垃圾桶（僅管理員可見，預設收合） -->
+      <div class="card collapsible-card" id="trash-card" style="margin-bottom:1rem;display:none">
+        <div class="collapsible-head" onclick="toggleCollapse('trash')">
+          <div class="card-title" style="margin-bottom:0">🗑 垃圾桶</div>
+          <span class="collapse-arrow" id="trash-arrow">▾</span>
+        </div>
+        <div id="trash-body" class="collapsible-body" style="display:none">
+          <div style="font-size:12px;color:var(--text3);margin:8px 0">已刪除項目不列入結算，可還原或永久刪除。</div>
+          <div id="trash-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+          <div id="trash-content" style="display:none">
+            <div style="font-size:13px;font-weight:700;margin:8px 0 6px">已刪除的支出</div>
+            <div id="trash-exp-list"></div>
+            <div style="font-size:13px;font-weight:700;margin:16px 0 6px">已刪除的還款</div>
+            <div id="trash-rep-list"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title">🧾 支出明細</div>
         <div id="exp-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
@@ -496,112 +537,6 @@ tr:hover td { background:var(--bg2); }
       </div>
     </div>
 
-    <!-- Decisions -->
-    <div id="panel-decisions" class="panel">
-      <div id="decisions-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
-      <div id="decisions-content" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-          <h2 style="font-size:18px;font-weight:700">📌 俱樂部決議</h2>
-          <button id="add-decision-btn" class="btn btn-mint btn-sm" onclick="showAddDecision()" style="display:none">＋ 新增決議</button>
-        </div>
-        <div id="add-decision-form" class="edit-form" style="display:none">
-          <div class="edit-form-title">新增決議項目</div>
-          <div class="r2">
-            <div class="field"><label>類別</label>
-              <select id="new-category">
-                <option value="節慶與生日">🎉 節慶與生日</option>
-                <option value="生活與健康">💊 生活與健康</option>
-                <option value="家族出遊">✈️ 家族出遊</option>
-                <option value="固定雜項">📦 固定雜項</option>
-              </select>
-            </div>
-            <div class="field"><label>項目名稱</label><input type="text" id="new-title" placeholder="如：過年聚餐、健保費"></div>
-          </div>
-
-          <div class="field"><label>🔁 定期週期</label>
-            <select id="new-recurring" onchange="onRecurringChange()">
-              <option value="不定期">不定期（手動記帳，不自動產生）</option>
-              <option value="每月">每月（當月第一天自動入帳）</option>
-              <option value="每年">每年（指定月份第一天自動入帳）</option>
-            </select>
-          </div>
-
-          <!-- 不定期：純文字說明 -->
-          <div id="irregular-section">
-            <div class="r2">
-              <div class="field"><label>月份說明</label><input type="text" id="new-month" placeholder="如：1月、不定期"></div>
-              <div class="field"><label>預估費用</label><input type="text" id="new-amount" placeholder="如：15,000元、視實際發生"></div>
-            </div>
-            <div class="field"><label>分攤原則</label>
-              <select id="new-rule">
-                <option value="平均分攤">平均分攤</option>
-                <option value="自訂比例">自訂比例</option>
-                <option value="自訂金額">自訂金額</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 定期：結構化自動入帳設定 -->
-          <div id="recurring-detail" style="display:none;background:var(--bg);border:1.5px solid var(--mint);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
-            <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin-bottom:8px">💸 自動入帳設定（金額與分攤只需設定這一次）</div>
-            <div id="charge-month-field" class="field" style="display:none"><label>📅 每年入帳月份</label>
-              <select id="new-charge-month">
-                <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
-                <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
-                <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
-                <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
-              </select>
-            </div>
-            <div class="r2">
-              <div class="field"><label>每期總金額（元）</label><input type="number" id="new-auto-amount" placeholder="0" min="0" oninput="onDecSplitChange()"></div>
-              <div class="field"><label>代墊者（誰先付）</label>
-                <select id="new-payer"><option>千婷</option><option>士德</option><option>立德</option></select>
-              </div>
-            </div>
-            <div class="field"><label>⚖️ 分攤方式</label>
-              <select id="new-split-type" onchange="onDecSplitChange()">
-                <option value="平均分攤">平均分攤</option>
-                <option value="自訂比例">自訂比例</option>
-                <option value="自訂金額">自訂金額</option>
-              </select>
-            </div>
-            <div id="dec-ratio-section" style="display:none">
-              <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
-              <div class="r3">
-                <div class="field"><label>千婷</label><input type="number" id="dec-ratio-千婷" value="1" min="0" oninput="onDecSplitChange()"></div>
-                <div class="field"><label>士德</label><input type="number" id="dec-ratio-士德" value="1" min="0" oninput="onDecSplitChange()"></div>
-                <div class="field"><label>立德</label><input type="number" id="dec-ratio-立德" value="1" min="0" oninput="onDecSplitChange()"></div>
-              </div>
-            </div>
-            <div id="dec-custom-section" style="display:none">
-              <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
-              <div class="r3">
-                <div class="field"><label>千婷</label><input type="number" id="dec-custom-千婷" value="0" min="0" oninput="onDecSplitChange()"></div>
-                <div class="field"><label>士德</label><input type="number" id="dec-custom-士德" value="0" min="0" oninput="onDecSplitChange()"></div>
-                <div class="field"><label>立德</label><input type="number" id="dec-custom-立德" value="0" min="0" oninput="onDecSplitChange()"></div>
-              </div>
-              <div id="dec-validation" class="validation" style="display:none"></div>
-            </div>
-            <div class="split-preview" style="margin-bottom:0">
-              <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 自動入帳時的應付金額</div>
-              <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="dec-prev-千婷">NT$0</span></div>
-              <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="dec-prev-立德">NT$0</span></div>
-              <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="dec-prev-士德">NT$0</span></div>
-            </div>
-            <div style="font-size:11px;color:var(--text3);margin-top:8px">💡 顯示文字會自動產生，無需另外填寫</div>
-          </div>
-
-          <div class="field"><label>備註說明（選填）</label><textarea id="new-detail" placeholder="細節說明…" style="min-height:48px"></textarea></div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" onclick="saveDecision()">儲存</button>
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('add-decision-form').style.display='none'">取消</button>
-          </div>
-        </div>
-        <div class="cat-grid" id="cat-grid"></div>
-        <div id="decision-items"></div>
-      </div>
-    </div>
-
     <!-- Profile -->
     <div id="panel-profile" class="panel">
       <div id="profile-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
@@ -617,7 +552,7 @@ tr:hover td { background:var(--bg2); }
 
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div class="card-title" style="margin-bottom:0">💰 我每月給父母（生活費）</div>
+            <div class="card-title" style="margin-bottom:0">🎀 我每月給父母（生活費）</div>
             <button id="living-edit-btn" class="btn btn-ghost btn-sm" onclick="toggleLivingEdit()" style="display:none">✏️ 編輯</button>
           </div>
           <div class="monthly-grid" id="monthly-grid"></div>
@@ -625,47 +560,113 @@ tr:hover td { background:var(--bg2); }
           <div style="font-size:12px;color:var(--text3);margin-top:8px">💡 各自直接轉帳給父母，不列入共同結算</div>
         </div>
 
-        <div class="card">
-          <div class="card-title">🎯 俱樂部決議・我的分攤預算預估</div>
-          <div id="budget-estimate"></div>
+        <div class="budget-decision-grid">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title">🌸 我的分攤預算預估</div>
+            <div id="budget-estimate"></div>
+          </div>
+          <div class="card" style="margin-bottom:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+              <div class="card-title" style="margin-bottom:0">📌 俱樂部決議</div>
+              <button id="add-decision-btn" class="btn btn-mint btn-sm" onclick="showAddDecision()" style="display:none">＋ 新增</button>
+            </div>
+            <div id="decisions-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+            <div id="decisions-content" style="display:none">
+              <div id="add-decision-form" class="edit-form" style="display:none">
+                <div class="edit-form-title">新增決議項目</div>
+                <div class="field"><label>類別</label>
+                  <select id="new-category">
+                    <option value="節慶與生日">🎉 節慶與生日</option>
+                    <option value="生活與健康">💊 生活與健康</option>
+                    <option value="家族出遊">✈️ 家族出遊</option>
+                    <option value="固定雜項">📦 固定雜項</option>
+                  </select>
+                </div>
+                <div class="field"><label>項目名稱</label><input type="text" id="new-title" placeholder="如：過年聚餐、健保費"></div>
+                <div class="field"><label>🔁 定期週期</label>
+                  <select id="new-recurring" onchange="onRecurringChange()">
+                    <option value="不定期">不定期（手動記帳，不自動產生）</option>
+                    <option value="每月">每月（當月第一天自動入帳）</option>
+                    <option value="每年">每年（指定月份第一天自動入帳）</option>
+                  </select>
+                </div>
+                <div id="irregular-section">
+                  <div class="field"><label>月份說明</label><input type="text" id="new-month" placeholder="如：1月、不定期"></div>
+                  <div class="field"><label>預估費用</label><input type="text" id="new-amount" placeholder="如：15,000元、視實際發生"></div>
+                  <div class="field"><label>分攤原則</label>
+                    <select id="new-rule">
+                      <option value="平均分攤">平均分攤</option>
+                      <option value="自訂比例">自訂比例</option>
+                      <option value="自訂金額">自訂金額</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="recurring-detail" style="display:none;background:var(--bg);border:1.5px solid var(--mint);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
+                  <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin-bottom:8px">💸 自動入帳設定（金額與分攤只需設定這一次）</div>
+                  <div id="charge-month-field" class="field" style="display:none"><label>📅 每年入帳月份</label>
+                    <select id="new-charge-month">
+                      <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+                      <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+                      <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+                      <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>每期總金額（元）</label><input type="number" id="new-auto-amount" placeholder="0" min="0" oninput="onDecSplitChange()"></div>
+                  <div class="field"><label>代墊者（誰先付）</label>
+                    <select id="new-payer"><option>千婷</option><option>士德</option><option>立德</option></select>
+                  </div>
+                  <div class="field"><label>⚖️ 分攤方式</label>
+                    <select id="new-split-type" onchange="onDecSplitChange()">
+                      <option value="平均分攤">平均分攤</option>
+                      <option value="自訂比例">自訂比例</option>
+                      <option value="自訂金額">自訂金額</option>
+                    </select>
+                  </div>
+                  <div id="dec-ratio-section" style="display:none">
+                    <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
+                    <div class="r3">
+                      <div class="field"><label>千婷</label><input type="number" id="dec-ratio-千婷" value="1" min="0" oninput="onDecSplitChange()"></div>
+                      <div class="field"><label>士德</label><input type="number" id="dec-ratio-士德" value="1" min="0" oninput="onDecSplitChange()"></div>
+                      <div class="field"><label>立德</label><input type="number" id="dec-ratio-立德" value="1" min="0" oninput="onDecSplitChange()"></div>
+                    </div>
+                  </div>
+                  <div id="dec-custom-section" style="display:none">
+                    <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
+                    <div class="r3">
+                      <div class="field"><label>千婷</label><input type="number" id="dec-custom-千婷" value="0" min="0" oninput="onDecSplitChange()"></div>
+                      <div class="field"><label>士德</label><input type="number" id="dec-custom-士德" value="0" min="0" oninput="onDecSplitChange()"></div>
+                      <div class="field"><label>立德</label><input type="number" id="dec-custom-立德" value="0" min="0" oninput="onDecSplitChange()"></div>
+                    </div>
+                    <div id="dec-validation" class="validation" style="display:none"></div>
+                  </div>
+                  <div class="split-preview" style="margin-bottom:0">
+                    <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 自動入帳時的應付金額</div>
+                    <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="dec-prev-千婷">NT$0</span></div>
+                    <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="dec-prev-立德">NT$0</span></div>
+                    <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="dec-prev-士德">NT$0</span></div>
+                  </div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:8px">💡 顯示文字會自動產生，無需另外填寫</div>
+                </div>
+                <div class="field"><label>備註說明（選填）</label><textarea id="new-detail" placeholder="細節說明…" style="min-height:48px"></textarea></div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-primary btn-sm" onclick="saveDecision()">儲存</button>
+                  <button class="btn btn-ghost btn-sm" onclick="document.getElementById('add-decision-form').style.display='none'">取消</button>
+                </div>
+              </div>
+              <div class="cat-grid" id="cat-grid"></div>
+              <div id="decision-items"></div>
+            </div>
+          </div>
         </div>
 
         <div class="card">
-          <div class="card-title">📊 今年度個人統計</div>
+          <div class="card-title">🧸 今年度個人統計</div>
           <div class="stat-row" id="profile-stats"></div>
         </div>
 
         <div class="card">
-          <div class="card-title">💳 我的收支明細</div>
+          <div class="card-title">📒 我的收支明細</div>
           <div id="my-history"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Trash -->
-    <div id="panel-trash" class="panel">
-      <div id="trash-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
-      <div id="trash-content" style="display:none">
-        <div class="card">
-          <div class="card-title">🗑 垃圾桶・已刪除的支出</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:1rem">已刪除項目不列入結算，可還原或永久刪除。</div>
-          <div id="trash-exp-list"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">🗑 垃圾桶・已刪除的還款</div>
-          <div id="trash-rep-list"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Audit Log -->
-    <div id="panel-audit" class="panel">
-      <div id="audit-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
-      <div id="audit-content" style="display:none">
-        <div class="card">
-          <div class="card-title">📜 操作紀錄</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:1rem">記錄所有新增、修改、刪除、還原動作，每走過必留下痕跡。</div>
-          <div id="audit-list"></div>
         </div>
       </div>
     </div>
@@ -878,16 +879,21 @@ function showToast(msg, ok=true) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 function switchTab(name) {
-  const names = ['summary','expense','repay','history','decisions','profile','trash','audit'];
+  const names = ['summary','expense','repay','history','profile'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
   if (name==='summary') loadSummary();
-  if (name==='history') loadHistory();
-  if (name==='decisions') loadDecisions();
-  if (name==='profile') loadProfile();
-  if (name==='trash') loadTrash();
-  if (name==='audit') loadAudit();
+  if (name==='history') { loadHistory(); loadAudit(); if(isAdmin){ document.getElementById('trash-card').style.display='block'; loadTrash(); } }
+  if (name==='profile') { loadProfile(); loadDecisions(); }
+}
+
+function toggleCollapse(which) {
+  const body = document.getElementById(which+'-body');
+  const arrow = document.getElementById(which+'-arrow');
+  const open = body.style.display==='none';
+  body.style.display = open ? 'block' : 'none';
+  arrow.classList.toggle('open', open);
 }
 
 // ── Split ─────────────────────────────────────────────
@@ -1089,7 +1095,7 @@ async function loadHistory() {
     expEmpty.style.display='none';
     // 桌機表格：婷 → 立 → 士
     tbody.innerHTML=exps.map(e=>`<tr>
-      <td style="white-space:nowrap">${shortDate(e.date)}</td><td class="wrap" style="font-weight:600;min-width:80px">${e.name}</td>
+      <td style="white-space:nowrap">${shortDate(e.date)}</td><td class="wrap" style="font-weight:600;min-width:80px">${e.name}${e.updated_at?'<span class="edited-dot" title="已修改"></span>':''}</td>
       <td style="font-weight:700;color:var(--pink);white-space:nowrap">${fmt(e.amount)}</td>
       <td><div style="display:flex;align-items:center;gap:3px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div></div></td>
       <td><span class="tag ${tagClass[e.split_type]||''}">${e.split_type}</span></td>
@@ -1101,7 +1107,7 @@ async function loadHistory() {
     expCards.innerHTML=exps.map(e=>`<div class="exp-card">
       <div class="exp-card-top">
         <div>
-          <div class="exp-card-name">${e.name}</div>
+          <div class="exp-card-name">${e.name}${e.updated_at?'<span class="edited-label">已修改</span>':''}</div>
           <div class="exp-card-date">📅 ${e.date}</div>
         </div>
         <div class="exp-card-amount">${fmt(e.amount)}</div>
@@ -1278,7 +1284,8 @@ async function saveEdit() {
       payer: document.getElementById('ed-payer').value,
       split_type: splitType,
       'share_千婷':sv.千婷,'share_士德':sv.士德,'share_立德':sv.立德,
-      note: document.getElementById('ed-note').value.trim()||null
+      note: document.getElementById('ed-note').value.trim()||null,
+      updated_at: new Date().toISOString()
     };
     const o = editContext.orig;
     const diffs = [];
@@ -1307,7 +1314,8 @@ async function saveEdit() {
       date: document.getElementById('ed-date').value,
       amount: parseInt(document.getElementById('ed-amount').value)||0,
       from_member, to_member,
-      note: document.getElementById('ed-note').value.trim()||null
+      note: document.getElementById('ed-note').value.trim()||null,
+      updated_at: new Date().toISOString()
     };
     const o = editContext.orig;
     const diffs = [];
