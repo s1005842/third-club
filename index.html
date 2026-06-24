@@ -562,6 +562,13 @@ tr:hover td { background:var(--bg2); }
           <div id="pending-list"></div>
         </div>
 
+        <!-- 被退回的還款通知（只有付款人看得到，有才顯示） -->
+        <div class="card" id="return-card" style="display:none;border:2px solid var(--peach)">
+          <div class="card-title">🔁 被退回的還款</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:1rem">對方回報沒有收到你的還款，這筆已被移除，請與對方確認後重新記錄。</div>
+          <div id="return-list"></div>
+        </div>
+
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div class="card-title" style="margin-bottom:0">🎀 我每月給父母（生活費）</div>
@@ -1844,6 +1851,7 @@ async function seedDecisions() {
 let livingCostsCache = [];
 
 // ── 待確認收款 ────────────────────────────────────────
+let _pendingCount = 0, _returnCount = 0;
 async function loadPendingConfirmations() {
   const { data } = await db.from('repayments').select('*').eq('deleted',false).eq('confirmed',false).eq('to_member',currentMember).order('date',{ascending:false});
   const pending = data || [];
@@ -1868,7 +1876,42 @@ async function loadPendingConfirmations() {
       </div>
     </div>`).join('');
   }
-  updateProfileBadge(pending.length);
+  _pendingCount = pending.length;
+  await loadReturnNotices();
+}
+
+// 被退回的還款通知
+async function loadReturnNotices() {
+  const { data } = await db.from('return_notices').select('*').eq('acknowledged',false).eq('to_member',currentMember).order('created_at',{ascending:false});
+  const notices = data || [];
+  const card = document.getElementById('return-card');
+  const list = document.getElementById('return-list');
+  if (notices.length===0) {
+    card.style.display='none';
+    list.innerHTML='';
+  } else {
+    card.style.display='block';
+    list.innerHTML = notices.map(n=>`<div class="exp-card" style="border-color:var(--peach)">
+      <div class="exp-card-top">
+        <div>
+          <div class="exp-card-name">${n.from_member} 回報沒收到你的還款</div>
+          <div class="exp-card-date">${n.note?'📌 '+n.note:''}</div>
+        </div>
+        <div class="exp-card-amount" style="color:var(--peach)">${fmt(n.amount)}</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="ackReturnNotice('${n.id}')">我知道了</button>
+      </div>
+    </div>`).join('');
+  }
+  _returnCount = notices.length;
+  updateProfileBadge(_pendingCount + _returnCount);
+}
+
+async function ackReturnNotice(id) {
+  await db.from('return_notices').update({acknowledged:true}).eq('id',id);
+  showToast('已清除通知');
+  loadReturnNotices();
 }
 
 function updateProfileBadge(count) {
@@ -1877,11 +1920,14 @@ function updateProfileBadge(count) {
   else { badge.style.display='none'; }
 }
 
-// 登入後 / 切換時檢查待確認數量（給亮燈用）
+// 登入後 / 切換時檢查待辦數量（待確認收款 + 被退回通知）
 async function checkPendingBadge() {
   if (!currentMember) return;
-  const { data } = await db.from('repayments').select('id').eq('deleted',false).eq('confirmed',false).eq('to_member',currentMember);
-  updateProfileBadge((data||[]).length);
+  const [{ data: pend }, { data: ret }] = await Promise.all([
+    db.from('repayments').select('id').eq('deleted',false).eq('confirmed',false).eq('to_member',currentMember),
+    db.from('return_notices').select('id').eq('acknowledged',false).eq('to_member',currentMember)
+  ]);
+  updateProfileBadge((pend||[]).length + (ret||[]).length);
 }
 
 async function confirmRepayment(id, received) {
@@ -1891,10 +1937,18 @@ async function confirmRepayment(id, received) {
     await logAudit(currentMember, '確認收款', '還款', r?`${r.from_member}→${r.to_member}`:'', `確認收到 ${r?fmt(r.amount):''}`);
     showToast('已確認收款 ✓，正式計入結算');
   } else {
-    // 沒收到 → 軟刪除該還款
+    // 沒收到 → 軟刪除該還款，並通知付款人
     await db.from('repayments').update({deleted:true}).eq('id',id);
     await logAudit(currentMember, '退回還款', '還款', r?`${r.from_member}→${r.to_member}`:'', `回報未收到，已移除`);
-    showToast('已回報未收到，該筆還款已移除');
+    if (r) {
+      await db.from('return_notices').insert({
+        to_member: r.from_member,   // 通知付款人
+        from_member: r.to_member,   // 由收款人退回
+        amount: r.amount,
+        note: r.note || null
+      });
+    }
+    showToast('已回報未收到，該筆還款已移除，將通知對方');
   }
   loadPendingConfirmations();
   loadProfile();
