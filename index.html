@@ -510,7 +510,6 @@ tr:hover td { background:var(--bg2); }
         <select id="year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadHistory()"></select>
         <button class="btn btn-ghost btn-sm" id="emergency-unlock-btn" style="display:none;margin-left:auto" onclick="toggleEmergencyUnlock()">🔒 緊急解鎖</button>
       </div>
-      <div id="category-stats" style="margin-bottom:1rem"></div>
 
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title">🧾 支出明細</div>
@@ -524,6 +523,7 @@ tr:hover td { background:var(--bg2); }
           </div>
           <div class="card-list mobile-only" id="exp-card-list"></div>
           <div id="exp-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出紀錄</div></div>
+          <div id="category-stats" style="margin-top:1rem"></div>
         </div>
       </div>
       <div class="card">
@@ -883,6 +883,7 @@ async function autoGenerateRecurring() {
         name: d.title + '（' + displayPeriod + ' 自動）',
         amount: d.auto_amount,
         payer: d.payer || '千婷',
+        category: d.category || null,
         split_type: d.split_type || '平均分攤',
         'share_千婷':sv.千婷, 'share_士德':sv.士德, 'share_立德':sv.立德,
         note: '定期決議自動入帳',
@@ -1300,6 +1301,7 @@ async function loadHistory() {
   if (grandTotal>0) {
     const parts = Object.keys(catTotals).map(c=>`<span style="white-space:nowrap">${catEmojiMap[c]||'🏷️'} ${c.replace('與','')} <b style="color:var(--pink)">${fmt(catTotals[c])}</b></span>`);
     catStatsEl.innerHTML = `<div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center">
+      <span style="font-weight:700;color:var(--text2);white-space:nowrap">📊 分類統計</span>
       ${parts.join('<span style="color:var(--text3)">·</span>')}
       <span style="margin-left:auto;font-weight:700;white-space:nowrap">總計 ${fmt(grandTotal)}</span>
     </div>`;
