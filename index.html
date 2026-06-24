@@ -504,12 +504,13 @@ tr:hover td { background:var(--bg2); }
     <!-- History -->
     <div id="panel-history" class="panel">
       <!-- 小按鈕列：操作紀錄（所有人）+ 垃圾桶（僅管理員）+ 年度檢視 -->
-      <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;gap:8px;margin-bottom:0.5rem;flex-wrap:wrap;align-items:center">
         <button class="btn btn-ghost btn-sm" onclick="openAuditModal()">📜 操作紀錄</button>
         <button class="btn btn-ghost btn-sm" id="trash-btn" style="display:none" onclick="openTrashModal()">🗑 垃圾桶</button>
         <select id="year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadHistory()"></select>
         <button class="btn btn-ghost btn-sm" id="emergency-unlock-btn" style="display:none;margin-left:auto" onclick="toggleEmergencyUnlock()">🔒 緊急解鎖</button>
       </div>
+      <div id="category-stats" style="margin-bottom:1rem"></div>
 
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title">🧾 支出明細</div>
@@ -580,7 +581,10 @@ tr:hover td { background:var(--bg2); }
         </div>
 
         <div class="card">
-          <div class="card-title">🧸 今年度個人統計</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">🧸 個人統計</div>
+            <select id="profile-year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()"></select>
+          </div>
           <div class="stat-row" id="profile-stats"></div>
         </div>
 
@@ -1166,14 +1170,36 @@ async function loadSummary() {
     pairMap[key].total += item.remaining;
     pairMap[key].items.push(item);
   });
-  const pairs = Object.values(pairMap).filter(p=>p.total>0);
+
+  // 互抵：對每一組雙向關係（A→B 與 B→A）算淨額，但保留兩邊原始明細
+  const nettedPairs = [];
+  const seen = new Set();
+  Object.values(pairMap).forEach(p=>{
+    const fwdKey = p.debtor+'|'+p.creditor;
+    const revKey = p.creditor+'|'+p.debtor;
+    if (seen.has(fwdKey) || seen.has(revKey)) return;
+    seen.add(fwdKey); seen.add(revKey);
+    const rev = pairMap[revKey];
+    const fwdTotal = p.total;
+    const revTotal = rev ? rev.total : 0;
+    const net = fwdTotal - revTotal;
+    if (net === 0) return; // 完全互抵，無需清償
+    if (net > 0) {
+      nettedPairs.push({debtor:p.debtor, creditor:p.creditor, total:net, gross:fwdTotal,
+        items:p.items, offsetItems: rev?rev.items:[], offsetTotal:revTotal, hasOffset:!!rev});
+    } else {
+      nettedPairs.push({debtor:p.creditor, creditor:p.debtor, total:-net, gross:revTotal,
+        items:rev?rev.items:[], offsetItems:p.items, offsetTotal:fwdTotal, hasOffset:true});
+    }
+  });
+  const pairs = nettedPairs.filter(p=>p.total>0);
 
   const actDiv=document.getElementById('suggestedActions');
   if (pairs.length===0) {
     actDiv.innerHTML='<div style="font-size:14px;color:var(--green-dark);padding:8px 0">🎉 目前帳目完全平衡，無需清償！</div>';
   } else {
     window._settlePairs = pairs;
-    actDiv.innerHTML = pairs.map((p,i)=>{
+    actDiv.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">💡 已自動互抵雙向欠款，並依最舊欠款優先抵銷還款（FIFO）</div>` + pairs.map((p,i)=>{
       const canPay = (currentMember===p.debtor);
       return `<div class="settle-item">
         <div class="settle-head" onclick="toggleSettle(${i})">
@@ -1184,12 +1210,20 @@ async function loadSummary() {
           <span class="settle-toggle" id="settle-toggle-${i}">展開明細 ▾</span>
         </div>
         <div class="settle-detail" id="settle-detail-${i}" style="display:none">
-          <div style="font-size:12px;color:var(--text2);margin:6px 0">這筆金額由以下尚未結清的支出累積：</div>
+          ${p.hasOffset && p.offsetTotal>0 ? `<div style="font-size:12px;color:var(--mint-dark);margin:6px 0;font-weight:600">已互抵：${p.creditor} 也欠 ${p.debtor} ${fmt(p.offsetTotal)}，淨額 ${fmt(p.gross)} − ${fmt(p.offsetTotal)} = ${fmt(p.total)}</div>` : ''}
+          <div style="font-size:12px;color:var(--text2);margin:6px 0">${p.debtor} 欠 ${p.creditor} 的明細（${fmt(p.gross)}）：</div>
           ${p.items.map(it=>`<div class="settle-row">
             <span style="color:var(--text3)">${it.date.slice(5)}</span>
             <span style="flex:1">${it.name}</span>
             <span style="font-weight:600;color:var(--pink)">${fmt(it.remaining)}</span>
           </div>`).join('')}
+          ${p.hasOffset && p.offsetItems.length>0 ? `
+            <div style="font-size:12px;color:var(--text2);margin:8px 0 6px">反向：${p.creditor} 欠 ${p.debtor} 的明細（互抵掉 ${fmt(p.offsetTotal)}）：</div>
+            ${p.offsetItems.map(it=>`<div class="settle-row" style="opacity:0.65">
+              <span style="color:var(--text3)">${it.date.slice(5)}</span>
+              <span style="flex:1">${it.name}</span>
+              <span style="font-weight:600;color:var(--mint-dark)">−${fmt(it.remaining)}</span>
+            </div>`).join('')}` : ''}
           ${canPay?`<button class="btn btn-mint btn-sm" style="margin-top:8px" onclick="quickRepay('${p.debtor}','${p.creditor}',${p.total})">✓ 記錄還款給 ${p.creditor}</button>`:`<div style="font-size:11px;color:var(--text3);margin-top:8px">（只有 ${p.debtor} 本人能記錄這筆還款）</div>`}
         </div>
       </div>`;
@@ -1199,7 +1233,7 @@ async function loadSummary() {
   document.getElementById('summary-content').style.display='block';
 }
 
-// ── 鎖定機制（建立滿3個月自動鎖定）──
+// ── 鎖定機制（建立滿1個月自動鎖定）──
 let emergencyUnlock = false; // 管理員緊急解鎖（隱藏功能）
 function isLocked(record) {
   if (emergencyUnlock) return false;
@@ -1207,12 +1241,12 @@ function isLocked(record) {
   const created = new Date(record.created_at);
   const now = new Date();
   const months = (now.getFullYear()-created.getFullYear())*12 + (now.getMonth()-created.getMonth());
-  return months >= 3;
+  return months >= 1;
 }
 function toggleEmergencyUnlock() {
   if (!isAdmin) return;
   if (!emergencyUnlock) {
-    if (!confirm('⚠️ 緊急解鎖會允許修改超過3個月的鎖定紀錄。\n這是特殊情況才使用的功能，確定要開啟嗎？')) return;
+    if (!confirm('⚠️ 緊急解鎖會允許修改超過1個月的鎖定紀錄。\n這是特殊情況才使用的功能，確定要開啟嗎？')) return;
     if (!confirm('再次確認：開啟後請謹慎修改，完成後建議立即關閉。確定開啟緊急解鎖？')) return;
     emergencyUnlock = true;
     showToast('🔓 緊急解鎖已開啟，請謹慎操作');
@@ -1256,6 +1290,20 @@ async function loadHistory() {
   const byYear = (arr) => (yr==='all'||!yr) ? arr : arr.filter(x=>x.date && x.date.startsWith(yr));
   const exps = byYear(expensesCache);
   const reps = byYear(repaymentsCache);
+
+  // 分類統計條（依年度）
+  const catEmojiMap={'生活與健康':'💊','節慶與生日':'🎉','家族出遊':'✈️','固定雜項':'📦'};
+  const catTotals={};
+  let grandTotal=0;
+  exps.forEach(e=>{ const c=e.category||'未分類'; catTotals[c]=(catTotals[c]||0)+e.amount; grandTotal+=e.amount; });
+  const catStatsEl=document.getElementById('category-stats');
+  if (grandTotal>0) {
+    const parts = Object.keys(catTotals).map(c=>`<span style="white-space:nowrap">${catEmojiMap[c]||'🏷️'} ${c.replace('與','')} <b style="color:var(--pink)">${fmt(catTotals[c])}</b></span>`);
+    catStatsEl.innerHTML = `<div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center">
+      ${parts.join('<span style="color:var(--text3)">·</span>')}
+      <span style="margin-left:auto;font-weight:700;white-space:nowrap">總計 ${fmt(grandTotal)}</span>
+    </div>`;
+  } else { catStatsEl.innerHTML=''; }
 
   const tagClass={'平均分攤':'tag-avg','自訂比例':'tag-ratio','自訂金額':'tag-custom'};
   const catEmoji={'生活與健康':'💊','節慶與生日':'🎉','家族出遊':'✈️','固定雜項':'📦'};
@@ -1349,7 +1397,7 @@ async function loadHistory() {
 async function delExpense(id) {
   if (!isAdmin) { showToast('只有千婷可以刪除',false); return; }
   const e = expensesCache.find(x=>x.id===id);
-  if (e && isLocked(e)) { showToast('🔒 此紀錄已超過3個月，已鎖定無法刪除',false); return; }
+  if (e && isLocked(e)) { showToast('🔒 此紀錄已超過1個月，已鎖定無法刪除',false); return; }
   if (!confirm('確定要刪除這筆支出嗎？（會移到垃圾桶，可還原）')) return;
   const { error } = await db.from('expenses').update({deleted:true}).eq('id',id);
   if (error) { showToast('刪除失敗',false); return; }
@@ -1359,7 +1407,7 @@ async function delExpense(id) {
 async function delRepayment(id) {
   if (!isAdmin) { showToast('只有千婷可以刪除',false); return; }
   const r = repaymentsCache.find(x=>x.id===id);
-  if (r && isLocked(r)) { showToast('🔒 此紀錄已超過3個月，已鎖定無法刪除',false); return; }
+  if (r && isLocked(r)) { showToast('🔒 此紀錄已超過1個月，已鎖定無法刪除',false); return; }
   if (!confirm('確定要刪除這筆還款紀錄嗎？（會移到垃圾桶，可還原）')) return;
   const { error } = await db.from('repayments').update({deleted:true}).eq('id',id);
   if (error) { showToast('刪除失敗',false); return; }
@@ -1374,7 +1422,7 @@ function openEditExpense(id) {
   if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
   const e = expensesCache.find(x=>x.id===id);
   if (!e) return;
-  if (isLocked(e)) { showToast('🔒 此紀錄已超過3個月，已鎖定無法編輯',false); return; }
+  if (isLocked(e)) { showToast('🔒 此紀錄已超過1個月，已鎖定無法編輯',false); return; }
   editContext = { type:'expense', id, editName:e.name, orig:e, splitVals:{千婷:e['share_千婷'],士德:e['share_士德'],立德:e['share_立德']} };
   document.getElementById('edit-modal-title').textContent = '✏️ 編輯支出';
   document.getElementById('edit-modal-body').innerHTML = `
@@ -1385,6 +1433,11 @@ function openEditExpense(id) {
       <div class="field"><label>👤 代墊者</label>
         <select id="ed-payer">${MEMBERS.map(m=>`<option ${m===e.payer?'selected':''}>${m}</option>`).join('')}</select>
       </div>
+    </div>
+    <div class="field"><label>🏷️ 分類</label>
+      <select id="ed-category">
+        ${['生活與健康','節慶與生日','家族出遊','固定雜項'].map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('')}
+      </select>
     </div>
     <div class="field"><label>⚖️ 分攤方式</label>
       <select id="ed-split-type" onchange="edSplitChange()">
@@ -1436,7 +1489,7 @@ function openEditRepayment(id) {
   if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
   const r = repaymentsCache.find(x=>x.id===id);
   if (!r) return;
-  if (isLocked(r)) { showToast('🔒 此紀錄已超過3個月，已鎖定無法編輯',false); return; }
+  if (isLocked(r)) { showToast('🔒 此紀錄已超過1個月，已鎖定無法編輯',false); return; }
   editContext = { type:'repayment', id, editName:`${r.from_member}→${r.to_member}`, orig:r };
   document.getElementById('edit-modal-title').textContent = '✏️ 編輯還款';
   document.getElementById('edit-modal-body').innerHTML = `
@@ -1472,6 +1525,7 @@ async function saveEdit() {
       name: document.getElementById('ed-name').value.trim(),
       amount: total,
       payer: document.getElementById('ed-payer').value,
+      category: document.getElementById('ed-category').value,
       split_type: splitType,
       'share_千婷':sv.千婷,'share_士德':sv.士德,'share_立德':sv.立德,
       note: document.getElementById('ed-note').value.trim()||null,
@@ -1483,6 +1537,7 @@ async function saveEdit() {
     if (o.amount!==newVals.amount) diffs.push(`金額 ${fmt(o.amount)} → ${fmt(newVals.amount)}`);
     if (o.date!==newVals.date) diffs.push(`日期 ${o.date} → ${newVals.date}`);
     if (o.payer!==newVals.payer) diffs.push(`代墊者 ${o.payer} → ${newVals.payer}`);
+    if ((o.category||'')!==(newVals.category||'')) diffs.push(`分類 ${o.category||'無'} → ${newVals.category}`);
     if (o.split_type!==newVals.split_type) diffs.push(`分攤方式 ${o.split_type} → ${newVals.split_type}`);
     if (o['share_千婷']!==sv.千婷) diffs.push(`千婷 ${fmt(o['share_千婷'])}→${fmt(sv.千婷)}`);
     if (o['share_立德']!==sv.立德) diffs.push(`立德 ${fmt(o['share_立德'])}→${fmt(sv.立德)}`);
@@ -1849,27 +1904,36 @@ async function loadProfile() {
   const { data: decs } = await db.from('decisions').select('*').order('sort_order');
   renderBudgetEstimate(decs||[]);
 
-  // 今年度統計
-  const thisYear = String(new Date().getFullYear());
+  // 個人統計（年度可選）
+  const pYearSel = document.getElementById('profile-year-filter');
+  if (!pYearSel.dataset.filled) {
+    const cy = new Date().getFullYear();
+    let opts=''; for (let y=cy; y>=cy-5; y--) opts+=`<option value="${y}">${y} 年</option>`;
+    opts+='<option value="all">全部年度</option>';
+    pYearSel.innerHTML=opts; pYearSel.value=String(cy); pYearSel.dataset.filled='1';
+  }
+  const pYr = pYearSel.value;
+  const byPYear = (arr,dateKey='date') => (pYr==='all') ? arr : arr.filter(x=>x[dateKey] && x[dateKey].startsWith(pYr));
   const [{data:exps},{data:reps}] = await Promise.all([
     db.from('expenses').select('*').eq('deleted',false),
     db.from('repayments').select('*').eq('deleted',false)
   ]);
-  const myExps = (exps||[]).filter(e=>e.date.startsWith(thisYear));
-  const myReps = (reps||[]).filter(r=>r.date.startsWith(thisYear) && r.confirmed!==false);
+  const myExps = byPYear(exps||[]);
+  const myReps = byPYear((reps||[]).filter(r=>r.confirmed!==false));
   const totalPaid = myExps.filter(e=>e.payer===currentMember).reduce((s,e)=>s+e.amount,0);
   const totalOwed = myExps.reduce((s,e)=>s+(e['share_'+currentMember]||0),0);
   const totalSent = myReps.filter(r=>r.from_member===currentMember).reduce((s,r)=>s+r.amount,0);
   const totalRecv = myReps.filter(r=>r.to_member===currentMember).reduce((s,r)=>s+r.amount,0);
   const net = (totalPaid-totalOwed)+totalSent-totalRecv;
+  const periodLabel = pYr==='all' ? '歷年' : pYr+'年';
   document.getElementById('profile-stats').innerHTML = `
-    <div class="stat-box stat-pink"><div class="sb-val">${fmt(totalPaid)}</div><div class="sb-label">今年累計代墊</div></div>
-    <div class="stat-box stat-mint"><div class="sb-val">${fmt(totalOwed)}</div><div class="sb-label">今年應分攤</div></div>
+    <div class="stat-box stat-pink"><div class="sb-val">${fmt(totalPaid)}</div><div class="sb-label">${periodLabel}累計代墊</div></div>
+    <div class="stat-box stat-mint"><div class="sb-val">${fmt(totalOwed)}</div><div class="sb-label">${periodLabel}應分攤</div></div>
     <div class="stat-box stat-lav"><div class="sb-val" style="color:${net>=0?'var(--green-dark)':'var(--red-dark)'}">${fmt(Math.abs(net))}</div><div class="sb-label">${net>=0?'應收回':'應付出'}</div></div>
   `;
 
-  // 我的收支明細
-  const myExpRows = (exps||[]).filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).slice(0,10);
+  // 我的收支明細（依年度）
+  const myExpRows = myExps.filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).sort((a,b)=>b.date<a.date?-1:1).slice(0,15);
   document.getElementById('my-history').innerHTML = myExpRows.length===0
     ? '<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無相關紀錄</div></div>'
     : `<div class="table-wrap"><table>
