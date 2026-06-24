@@ -1195,6 +1195,15 @@ async function loadSummary() {
   });
   const pairs = nettedPairs.filter(p=>p.total>0);
 
+  // 待確認還款（依 from→to 彙整金額），用來提醒避免重複記錄
+  const pendingMap = {}; // key: from|to → {amount, count}
+  (reps||[]).filter(r=>r.confirmed===false).forEach(r=>{
+    const key = r.from_member+'|'+r.to_member;
+    if (!pendingMap[key]) pendingMap[key] = {amount:0, count:0};
+    pendingMap[key].amount += r.amount;
+    pendingMap[key].count += 1;
+  });
+
   const actDiv=document.getElementById('suggestedActions');
   if (pairs.length===0) {
     actDiv.innerHTML='<div style="font-size:14px;color:var(--green-dark);padding:8px 0">🎉 目前帳目完全平衡，無需清償！</div>';
@@ -1202,7 +1211,10 @@ async function loadSummary() {
     window._settlePairs = pairs;
     actDiv.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">💡 已自動互抵雙向欠款，並依最舊欠款優先抵銷還款（FIFO）</div>` + pairs.map((p,i)=>{
       const canPay = (currentMember===p.debtor);
-      return `<div class="settle-item">
+      const pend = pendingMap[p.debtor+'|'+p.creditor];
+      const hasPending = !!pend;
+      return `<div class="settle-item" ${hasPending?'style="background:var(--bg3);border-radius:var(--radius);padding:8px;margin:4px 0"':''}>
+        ${hasPending?`<div style="font-size:12px;color:var(--peach);font-weight:700;margin-bottom:6px">⏳ 已有待確認還款 ${fmt(pend.amount)}${pend.count>1?`（${pend.count}筆）`:''}，等 ${p.creditor} 確認中，請勿重複記錄</div>`:''}
         <div class="settle-head" onclick="toggleSettle(${i})">
           <div class="settle-main">
             <span class="action-arrow">👉</span>
@@ -1225,7 +1237,11 @@ async function loadSummary() {
               <span style="flex:1">${it.name}</span>
               <span style="font-weight:600;color:var(--mint-dark)">−${fmt(it.remaining)}</span>
             </div>`).join('')}` : ''}
-          ${canPay?`<button class="btn btn-mint btn-sm" style="margin-top:8px" onclick="quickRepay('${p.debtor}','${p.creditor}',${p.total})">✓ 記錄還款給 ${p.creditor}</button>`:`<div style="font-size:11px;color:var(--text3);margin-top:8px">（只有 ${p.debtor} 本人能記錄這筆還款）</div>`}
+          ${hasPending
+            ? `<div style="margin-top:8px"><button class="btn btn-sm" style="background:var(--bg3);color:var(--text3);cursor:not-allowed" disabled>⏳ 已有待確認還款，等 ${p.creditor} 確認</button></div>`
+            : (canPay
+              ? `<button class="btn btn-mint btn-sm" style="margin-top:8px" onclick="quickRepay('${p.debtor}','${p.creditor}',${p.total})">✓ 記錄還款給 ${p.creditor}</button>`
+              : `<div style="font-size:11px;color:var(--text3);margin-top:8px">（只有 ${p.debtor} 本人能記錄這筆還款）</div>`)}
         </div>
       </div>`;
     }).join('');
