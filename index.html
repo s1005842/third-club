@@ -1125,7 +1125,7 @@ async function loadSummary() {
   });
   MEMBERS.forEach(m=>{stats[m].net=(stats[m].paid-stats[m].owed)+stats[m].sentOut-stats[m].received;});
   const grid=document.getElementById('settlementGrid');
-  grid.innerHTML=MEMBERS.map(m=>{
+  grid.innerHTML=['千婷','立德','士德'].map(m=>{
     const s=stats[m], cls=s.net>0?'pos':s.net<0?'neg':'zero';
     const desc=s.net>0?'應收回 💚':s.net<0?'應付出 ❤️':'完美平衡 ✨';
     const av=AV_KEY[m];
