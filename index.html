@@ -393,6 +393,7 @@ tr:hover td { background:var(--bg2); }
     <button class="tab" onclick="switchTab('expense')"><span class="tab-icon">➕</span>新增支出</button>
     <button class="tab" onclick="switchTab('repay')"><span class="tab-icon">💸</span>新增還款</button>
     <button class="tab" onclick="switchTab('history')"><span class="tab-icon">📋</span>明細記錄</button>
+    <button class="tab" onclick="switchTab('projects')"><span class="tab-icon">📁</span>專案帳</button>
     <button class="tab" onclick="switchTab('profile')"><span class="tab-icon">🐱</span>個人頁面<span id="profile-badge" class="tab-badge" style="display:none"></span></button>
   </div>
   <div class="content">
@@ -413,6 +414,10 @@ tr:hover td { background:var(--bg2); }
     <div id="panel-expense" class="panel">
       <div class="card">
         <div class="card-title">➕ 新增支出明細</div>
+        <div id="exp-project-banner" style="display:none;background:var(--mint-light);border:1.5px solid var(--mint);border-radius:var(--radius);padding:8px 12px;margin-bottom:1rem;font-size:13px;display:none;align-items:center;justify-content:space-between">
+          <div>📁 記到專案：<b><span></span></b></div>
+          <button class="btn btn-ghost btn-sm" onclick="clearProjectExpense()">改記一般帳</button>
+        </div>
         <div class="r2">
           <div class="field"><label>📅 日期</label><input type="date" id="exp-date"></div>
           <div class="field"><label>📝 支出名稱</label><input type="text" id="exp-name" placeholder="如：宜蘭民宿、健保費"></div>
@@ -542,6 +547,36 @@ tr:hover td { background:var(--bg2); }
       </div>
     </div>
 
+    <!-- Projects -->
+    <div id="panel-projects" class="panel">
+      <!-- 專案列表 -->
+      <div id="projects-list-view">
+        <div class="card" style="margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+            <div class="card-title" style="margin-bottom:0">📁 專案帳</div>
+            <button id="add-project-btn" class="btn btn-mint btn-sm" style="display:none" onclick="showAddProject()">＋ 新專案</button>
+          </div>
+          <div style="font-size:12px;color:var(--text3)">活動、醫療等一次性的帳，獨立結算、整包封存。最後一筆支出滿 30 天自動封存。</div>
+          <div id="add-project-form" class="edit-form" style="display:none;margin-top:1rem">
+            <div class="edit-form-title">新增專案</div>
+            <div class="field"><label>專案名稱</label><input type="text" id="new-project-name" placeholder="如：2026 墾丁旅遊、老爸住院醫療"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="saveProject()">建立</button>
+              <button class="btn btn-ghost btn-sm" onclick="document.getElementById('add-project-form').style.display='none'">取消</button>
+            </div>
+          </div>
+        </div>
+        <div id="projects-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+        <div id="projects-cards"></div>
+      </div>
+
+      <!-- 單一專案詳情 -->
+      <div id="project-detail-view" style="display:none">
+        <button class="btn btn-ghost btn-sm" style="margin-bottom:1rem" onclick="backToProjects()">← 返回專案列表</button>
+        <div id="project-detail-content"></div>
+      </div>
+    </div>
+
     <!-- Profile -->
     <div id="panel-profile" class="panel">
       <div id="profile-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
@@ -588,9 +623,15 @@ tr:hover td { background:var(--bg2); }
         </div>
 
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
             <div class="card-title" style="margin-bottom:0">🧸 個人統計</div>
-            <select id="profile-year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()"></select>
+            <div style="display:flex;gap:6px">
+              <select id="profile-scope-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()">
+                <option value="general">只看一般帳</option>
+                <option value="all">含專案帳</option>
+              </select>
+              <select id="profile-year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()"></select>
+            </div>
           </div>
           <div class="stat-row" id="profile-stats"></div>
         </div>
@@ -846,6 +887,7 @@ async function setupUser(user) {
   setToday();
   // 管理員登入時，檢查並自動補產生當期的定期決議支出
   if (isAdmin) { await autoGenerateRecurring(); }
+  await autoArchiveProjects();
   checkPendingBadge();
   loadSummary();
 }
@@ -947,13 +989,14 @@ function showToast(msg, ok=true) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 function switchTab(name) {
-  const names = ['summary','expense','repay','history','profile'];
+  const names = ['summary','expense','repay','history','projects','profile'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
   if (name==='summary') loadSummary();
   if (name==='history') { populateYearFilter(); loadHistory(); document.getElementById('trash-btn').style.display = isAdmin ? 'inline-flex' : 'none'; document.getElementById('emergency-unlock-btn').style.display = isAdmin ? 'inline-flex' : 'none'; }
   if (name==='profile') { loadProfile(); }
+  if (name==='projects') { backToProjects(); }
 }
 
 function populateYearFilter() {
@@ -1053,23 +1096,26 @@ async function saveExpense() {
   const category=document.getElementById('exp-category').value;
   const splitType=document.getElementById('exp-split-type').value;
   const note=document.getElementById('exp-note').value.trim();
-  if (!date||!name||!amount||!payer||!category||!splitType) { showToast('請填寫所有必填欄位（含分類）🙏',false); return; }
+  const projectId = window._pendingProjectId || null;
+  // 一般帳分類必填；專案帳不需分類
+  if (!date||!name||!amount||!payer||!splitType||(!projectId && !category)) { showToast(projectId?'請填寫所有必填欄位 🙏':'請填寫所有必填欄位（含分類）🙏',false); return; }
   if (splitType==='custom' && splitVals.千婷+splitVals.士德+splitVals.立德!==amount) { showToast('自訂金額合計不等於總金額',false); return; }
   const typeMap={avg:'平均分攤',ratio:'自訂比例',custom:'自訂金額'};
   const btn=document.getElementById('exp-save-btn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 儲存中…';
   const receiptUrl = await uploadReceipt();
   const { error } = await db.from('expenses').insert({
-    date,name,amount,payer,category,
+    date,name,amount,payer,category: projectId?null:category,
     split_type:typeMap[splitType],
     'share_千婷':splitVals.千婷,'share_士德':splitVals.士德,'share_立德':splitVals.立德,
     note:note||null, created_by:currentMember,
-    receipt_url:receiptUrl||null
+    receipt_url:receiptUrl||null,
+    project_id: projectId
   });
   btn.disabled=false; btn.innerHTML='✨ 儲存支出';
   if (error) { showToast('儲存失敗：'+error.message,false); return; }
   showToast('支出已儲存 🎉');
-  await logAudit(currentMember, '新增', '支出', name, `金額 ${fmt(amount)}，${category}，${typeMap[splitType]}`);
+  await logAudit(currentMember, '新增', '支出', name, `金額 ${fmt(amount)}${projectId?'（專案）':'，'+category}，${typeMap[splitType]}`);
   ['exp-name','exp-amount','exp-note'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('exp-category').value='';
   document.getElementById('exp-split-type').value='';
@@ -1081,6 +1127,20 @@ async function saveExpense() {
   document.getElementById('upload-area').innerHTML='<div class="upload-icon">📷</div><div class="upload-text">點擊上傳照片</div><div class="upload-sub">支援 JPG、PNG，最大 10MB</div>';
   document.getElementById('receipt-input').value='';
   setToday(); splitVals={千婷:0,士德:0,立德:0};
+  // 若是專案支出，存完回到該專案頁
+  if (projectId) {
+    const pid = projectId;
+    window._pendingProjectId = null;
+    document.getElementById('exp-project-banner').style.display='none';
+    switchTab('projects');
+    setTimeout(()=>openProjectDetail(pid), 100);
+  }
+}
+
+function clearProjectExpense() {
+  window._pendingProjectId = null;
+  document.getElementById('exp-project-banner').style.display='none';
+  showToast('已改為記一般帳');
 }
 
 // ── Save Repayment ────────────────────────────────────
@@ -1105,13 +1165,8 @@ async function saveRepayment() {
 }
 
 // ── Summary ───────────────────────────────────────────
-async function loadSummary() {
-  document.getElementById('summary-loading').style.display='block';
-  document.getElementById('summary-content').style.display='none';
-  const [{data:exps},{data:reps}] = await Promise.all([
-    db.from('expenses').select('*').eq('deleted',false),
-    db.from('repayments').select('*').eq('deleted',false)
-  ]);
+// ── 共用：計算結算（stats + 清償配對 + 待確認）──
+function computeSettlement(exps, reps) {
   const stats={};
   MEMBERS.forEach(m=>{stats[m]={paid:0,owed:0,sentOut:0,received:0};});
   (exps||[]).forEach(e=>{
@@ -1119,13 +1174,75 @@ async function loadSummary() {
     MEMBERS.forEach(m=>{stats[m].owed+=e['share_'+m]||0;});
   });
   (reps||[]).forEach(r=>{
-    if (r.confirmed===false) return; // 待確認的還款不計入結算
+    if (r.confirmed===false) return;
     stats[r.from_member].sentOut+=r.amount;
     stats[r.to_member].received+=r.amount;
   });
   MEMBERS.forEach(m=>{stats[m].net=(stats[m].paid-stats[m].owed)+stats[m].sentOut-stats[m].received;});
-  const grid=document.getElementById('settlementGrid');
-  grid.innerHTML=['千婷','立德','士德'].map(m=>{
+
+  // 逐筆債務追蹤
+  const sortedExps = (exps||[]).slice().sort((a,b)=> (a.date<b.date?-1:a.date>b.date?1:0));
+  const debtItems = [];
+  sortedExps.forEach(e=>{
+    MEMBERS.forEach(m=>{
+      if (m===e.payer) return;
+      const share = e['share_'+m]||0;
+      if (share>0) debtItems.push({debtor:m, creditor:e.payer, date:e.date, name:e.name, amount:share, remaining:share});
+    });
+  });
+  const confirmedReps = (reps||[]).filter(r=>r.confirmed!==false).slice().sort((a,b)=> (a.date<b.date?-1:a.date>b.date?1:0));
+  confirmedReps.forEach(r=>{
+    let pay = r.amount;
+    for (const item of debtItems) {
+      if (pay<=0) break;
+      if (item.debtor===r.from_member && item.creditor===r.to_member && item.remaining>0) {
+        const off = Math.min(pay, item.remaining);
+        item.remaining -= off; pay -= off;
+      }
+    }
+  });
+  const pairMap = {};
+  debtItems.forEach(item=>{
+    if (item.remaining<=0) return;
+    const key = item.debtor+'|'+item.creditor;
+    if (!pairMap[key]) pairMap[key] = {debtor:item.debtor, creditor:item.creditor, total:0, items:[]};
+    pairMap[key].total += item.remaining;
+    pairMap[key].items.push(item);
+  });
+  const nettedPairs = [];
+  const seen = new Set();
+  Object.values(pairMap).forEach(p=>{
+    const fwdKey = p.debtor+'|'+p.creditor;
+    const revKey = p.creditor+'|'+p.debtor;
+    if (seen.has(fwdKey) || seen.has(revKey)) return;
+    seen.add(fwdKey); seen.add(revKey);
+    const rev = pairMap[revKey];
+    const fwdTotal = p.total;
+    const revTotal = rev ? rev.total : 0;
+    const net = fwdTotal - revTotal;
+    if (net === 0) return;
+    if (net > 0) {
+      nettedPairs.push({debtor:p.debtor, creditor:p.creditor, total:net, gross:fwdTotal,
+        items:p.items, offsetItems: rev?rev.items:[], offsetTotal:revTotal, hasOffset:!!rev});
+    } else {
+      nettedPairs.push({debtor:p.creditor, creditor:p.debtor, total:-net, gross:revTotal,
+        items:rev?rev.items:[], offsetItems:p.items, offsetTotal:fwdTotal, hasOffset:true});
+    }
+  });
+  const pairs = nettedPairs.filter(p=>p.total>0);
+  const pendingMap = {};
+  (reps||[]).filter(r=>r.confirmed===false).forEach(r=>{
+    const key = r.from_member+'|'+r.to_member;
+    if (!pendingMap[key]) pendingMap[key] = {amount:0, count:0};
+    pendingMap[key].amount += r.amount;
+    pendingMap[key].count += 1;
+  });
+  return {stats, pairs, pendingMap};
+}
+
+// 共用：渲染三人結算卡
+function renderMemberCards(stats) {
+  return ['千婷','立德','士德'].map(m=>{
     const s=stats[m], cls=s.net>0?'pos':s.net<0?'neg':'zero';
     const desc=s.net>0?'應收回 💚':s.net<0?'應付出 ❤️':'完美平衡 ✨';
     const av=AV_KEY[m];
@@ -1145,116 +1262,271 @@ async function loadSummary() {
       </div>
     </div>`;
   }).join('');
-  // ── 逐筆債務追蹤（誰欠代墊者多少，FIFO 抵銷還款）──
-  // 建立每筆「非代墊者 → 代墊者」的債務項目
-  const sortedExps = (exps||[]).slice().sort((a,b)=> (a.date<b.date?-1:a.date>b.date?1:0));
-  // debtMap[debtor][creditor] = [{date, name, amount, remaining}, ...]
-  const debtItems = []; // 全部債務項目（依日期排序，供 FIFO）
-  sortedExps.forEach(e=>{
-    MEMBERS.forEach(m=>{
-      if (m===e.payer) return;
-      const share = e['share_'+m]||0;
-      if (share>0) debtItems.push({debtor:m, creditor:e.payer, date:e.date, name:e.name, amount:share, remaining:share});
-    });
-  });
-  // 已確認的還款，依日期排序，FIFO 抵銷對應 debtor→creditor 的債務
-  const confirmedReps = (reps||[]).filter(r=>r.confirmed!==false).slice().sort((a,b)=> (a.date<b.date?-1:a.date>b.date?1:0));
-  confirmedReps.forEach(r=>{
-    let pay = r.amount;
-    for (const item of debtItems) {
-      if (pay<=0) break;
-      if (item.debtor===r.from_member && item.creditor===r.to_member && item.remaining>0) {
-        const off = Math.min(pay, item.remaining);
-        item.remaining -= off; pay -= off;
-      }
-    }
-  });
-  // 彙整成 pairwise：debtor → creditor 還欠多少 + 明細
-  const pairMap = {}; // key: debtor|creditor
-  debtItems.forEach(item=>{
-    if (item.remaining<=0) return;
-    const key = item.debtor+'|'+item.creditor;
-    if (!pairMap[key]) pairMap[key] = {debtor:item.debtor, creditor:item.creditor, total:0, items:[]};
-    pairMap[key].total += item.remaining;
-    pairMap[key].items.push(item);
-  });
+}
 
-  // 互抵：對每一組雙向關係（A→B 與 B→A）算淨額，但保留兩邊原始明細
-  const nettedPairs = [];
-  const seen = new Set();
-  Object.values(pairMap).forEach(p=>{
-    const fwdKey = p.debtor+'|'+p.creditor;
-    const revKey = p.creditor+'|'+p.debtor;
-    if (seen.has(fwdKey) || seen.has(revKey)) return;
-    seen.add(fwdKey); seen.add(revKey);
-    const rev = pairMap[revKey];
-    const fwdTotal = p.total;
-    const revTotal = rev ? rev.total : 0;
-    const net = fwdTotal - revTotal;
-    if (net === 0) return; // 完全互抵，無需清償
-    if (net > 0) {
-      nettedPairs.push({debtor:p.debtor, creditor:p.creditor, total:net, gross:fwdTotal,
-        items:p.items, offsetItems: rev?rev.items:[], offsetTotal:revTotal, hasOffset:!!rev});
-    } else {
-      nettedPairs.push({debtor:p.creditor, creditor:p.debtor, total:-net, gross:revTotal,
-        items:rev?rev.items:[], offsetItems:p.items, offsetTotal:fwdTotal, hasOffset:true});
-    }
-  });
-  const pairs = nettedPairs.filter(p=>p.total>0);
-
-  // 待確認還款（依 from→to 彙整金額），用來提醒避免重複記錄
-  const pendingMap = {}; // key: from|to → {amount, count}
-  (reps||[]).filter(r=>r.confirmed===false).forEach(r=>{
-    const key = r.from_member+'|'+r.to_member;
-    if (!pendingMap[key]) pendingMap[key] = {amount:0, count:0};
-    pendingMap[key].amount += r.amount;
-    pendingMap[key].count += 1;
-  });
-
-  const actDiv=document.getElementById('suggestedActions');
+// 共用：渲染清償建議（idPrefix 區隔一般帳與專案帳，readOnly 封存時停用還款鈕）
+function renderSettlementActions(pairs, pendingMap, idPrefix='', readOnly=false) {
   if (pairs.length===0) {
-    actDiv.innerHTML='<div style="font-size:14px;color:var(--green-dark);padding:8px 0">🎉 目前帳目完全平衡，無需清償！</div>';
-  } else {
-    window._settlePairs = pairs;
-    actDiv.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">💡 已自動互抵雙向欠款，並依最舊欠款優先抵銷還款（FIFO）</div>` + pairs.map((p,i)=>{
-      const canPay = (currentMember===p.debtor);
-      const pend = pendingMap[p.debtor+'|'+p.creditor];
-      const hasPending = !!pend;
-      return `<div class="settle-item" ${hasPending?'style="background:var(--bg3);border-radius:var(--radius);padding:8px;margin:4px 0"':''}>
-        ${hasPending?`<div style="font-size:12px;color:var(--peach);font-weight:700;margin-bottom:6px">⏳ 已有待確認還款 ${fmt(pend.amount)}${pend.count>1?`（${pend.count}筆）`:''}，等 ${p.creditor} 確認中，請勿重複記錄</div>`:''}
-        <div class="settle-head" onclick="toggleSettle(${i})">
-          <div class="settle-main">
-            <span class="action-arrow">👉</span>
-            <span><b>${p.debtor}</b> 應付 <b style="color:var(--pink)">${fmt(p.total)}</b> 給 <b>${p.creditor}</b></span>
-          </div>
-          <span class="settle-toggle" id="settle-toggle-${i}">展開明細 ▾</span>
+    return '<div style="font-size:14px;color:var(--green-dark);padding:8px 0">🎉 目前帳目完全平衡，無需清償！</div>';
+  }
+  window['_settlePairs_'+idPrefix] = pairs;
+  return `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">💡 已自動互抵雙向欠款，並依最舊欠款優先抵銷還款（FIFO）</div>` + pairs.map((p,i)=>{
+    const canPay = (currentMember===p.debtor) && !readOnly;
+    const pend = pendingMap[p.debtor+'|'+p.creditor];
+    const hasPending = !!pend;
+    const tid = idPrefix+i;
+    return `<div class="settle-item" ${hasPending?'style="background:var(--bg3);border-radius:var(--radius);padding:8px;margin:4px 0"':''}>
+      ${hasPending?`<div style="font-size:12px;color:var(--peach);font-weight:700;margin-bottom:6px">⏳ 已有待確認還款 ${fmt(pend.amount)}${pend.count>1?`（${pend.count}筆）`:''}，等 ${p.creditor} 確認中，請勿重複記錄</div>`:''}
+      <div class="settle-head" onclick="toggleSettleG('${tid}')">
+        <div class="settle-main">
+          <span class="action-arrow">👉</span>
+          <span><b>${p.debtor}</b> 應付 <b style="color:var(--pink)">${fmt(p.total)}</b> 給 <b>${p.creditor}</b></span>
         </div>
-        <div class="settle-detail" id="settle-detail-${i}" style="display:none">
-          ${p.hasOffset && p.offsetTotal>0 ? `<div style="font-size:12px;color:var(--mint-dark);margin:6px 0;font-weight:600">已互抵：${p.creditor} 也欠 ${p.debtor} ${fmt(p.offsetTotal)}，淨額 ${fmt(p.gross)} − ${fmt(p.offsetTotal)} = ${fmt(p.total)}</div>` : ''}
-          <div style="font-size:12px;color:var(--text2);margin:6px 0">${p.debtor} 欠 ${p.creditor} 的明細（${fmt(p.gross)}）：</div>
-          ${p.items.map(it=>`<div class="settle-row">
+        <span class="settle-toggle" id="settle-toggle-${tid}">展開明細 ▾</span>
+      </div>
+      <div class="settle-detail" id="settle-detail-${tid}" style="display:none">
+        ${p.hasOffset && p.offsetTotal>0 ? `<div style="font-size:12px;color:var(--mint-dark);margin:6px 0;font-weight:600">已互抵：${p.creditor} 也欠 ${p.debtor} ${fmt(p.offsetTotal)}，淨額 ${fmt(p.gross)} − ${fmt(p.offsetTotal)} = ${fmt(p.total)}</div>` : ''}
+        <div style="font-size:12px;color:var(--text2);margin:6px 0">${p.debtor} 欠 ${p.creditor} 的明細（${fmt(p.gross)}）：</div>
+        ${p.items.map(it=>`<div class="settle-row">
+          <span style="color:var(--text3)">${it.date.slice(5)}</span>
+          <span style="flex:1">${it.name}</span>
+          <span style="font-weight:600;color:var(--pink)">${fmt(it.remaining)}</span>
+        </div>`).join('')}
+        ${p.hasOffset && p.offsetItems.length>0 ? `
+          <div style="font-size:12px;color:var(--text2);margin:8px 0 6px">反向：${p.creditor} 欠 ${p.debtor} 的明細（互抵掉 ${fmt(p.offsetTotal)}）：</div>
+          ${p.offsetItems.map(it=>`<div class="settle-row" style="opacity:0.65">
             <span style="color:var(--text3)">${it.date.slice(5)}</span>
             <span style="flex:1">${it.name}</span>
-            <span style="font-weight:600;color:var(--pink)">${fmt(it.remaining)}</span>
-          </div>`).join('')}
-          ${p.hasOffset && p.offsetItems.length>0 ? `
-            <div style="font-size:12px;color:var(--text2);margin:8px 0 6px">反向：${p.creditor} 欠 ${p.debtor} 的明細（互抵掉 ${fmt(p.offsetTotal)}）：</div>
-            ${p.offsetItems.map(it=>`<div class="settle-row" style="opacity:0.65">
-              <span style="color:var(--text3)">${it.date.slice(5)}</span>
-              <span style="flex:1">${it.name}</span>
-              <span style="font-weight:600;color:var(--mint-dark)">−${fmt(it.remaining)}</span>
-            </div>`).join('')}` : ''}
-          ${hasPending
+            <span style="font-weight:600;color:var(--mint-dark)">−${fmt(it.remaining)}</span>
+          </div>`).join('')}` : ''}
+        ${readOnly
+          ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">🔒 此專案已封存</div>`
+          : (hasPending
             ? `<div style="margin-top:8px"><button class="btn btn-sm" style="background:var(--bg3);color:var(--text3);cursor:not-allowed" disabled>⏳ 已有待確認還款，等 ${p.creditor} 確認</button></div>`
             : (canPay
-              ? `<button class="btn btn-mint btn-sm" style="margin-top:8px" onclick="quickRepay('${p.debtor}','${p.creditor}',${p.total})">✓ 記錄還款給 ${p.creditor}</button>`
-              : `<div style="font-size:11px;color:var(--text3);margin-top:8px">（只有 ${p.debtor} 本人能記錄這筆還款）</div>`)}
-        </div>
-      </div>`;
-    }).join('');
-  }
+              ? `<button class="btn btn-mint btn-sm" style="margin-top:8px" onclick="quickRepay('${p.debtor}','${p.creditor}',${p.total}${idPrefix?`,'${idPrefix.replace(/-$/,'')}'`:''})">✓ 記錄還款給 ${p.creditor}</button>`
+              : `<div style="font-size:11px;color:var(--text3);margin-top:8px">（只有 ${p.debtor} 本人能記錄這筆還款）</div>`))}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSettleG(tid) {
+  const d = document.getElementById('settle-detail-'+tid);
+  const t = document.getElementById('settle-toggle-'+tid);
+  const open = d.style.display==='none';
+  d.style.display = open ? 'block' : 'none';
+  t.textContent = open ? '收合明細 ▴' : '展開明細 ▾';
+}
+
+async function loadSummary() {
+  document.getElementById('summary-loading').style.display='block';
+  document.getElementById('summary-content').style.display='none';
+  const [{data:exps},{data:reps}] = await Promise.all([
+    db.from('expenses').select('*').eq('deleted',false).is('project_id',null),
+    db.from('repayments').select('*').eq('deleted',false).is('project_id',null)
+  ]);
+  const {stats, pairs, pendingMap} = computeSettlement(exps, reps);
+  document.getElementById('settlementGrid').innerHTML = renderMemberCards(stats);
+  document.getElementById('suggestedActions').innerHTML = renderSettlementActions(pairs, pendingMap, '', false);
   document.getElementById('summary-loading').style.display='none';
   document.getElementById('summary-content').style.display='block';
+}
+
+// ════════ 專案帳 ════════
+let projectsCache = [];
+
+function showAddProject() {
+  const f = document.getElementById('add-project-form');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+async function saveProject() {
+  const name = document.getElementById('new-project-name').value.trim();
+  if (!name) { showToast('請輸入專案名稱',false); return; }
+  const { error } = await db.from('projects').insert({name, created_by: currentMember});
+  if (error) { showToast('建立失敗：'+error.message,false); return; }
+  await logAudit(currentMember,'新增','專案',name,'建立專案帳');
+  showToast('專案已建立 📁');
+  document.getElementById('new-project-name').value='';
+  document.getElementById('add-project-form').style.display='none';
+  loadProjects();
+}
+
+// 自動封存檢查：最後一筆支出 + 30 天
+async function autoArchiveProjects() {
+  const { data: projs } = await db.from('projects').select('*').eq('status','進行中');
+  if (!projs || projs.length===0) return;
+  const now = new Date();
+  for (const p of projs) {
+    const { data: exps } = await db.from('expenses').select('date').eq('project_id',p.id).eq('deleted',false).order('date',{ascending:false}).limit(1);
+    let refDate;
+    if (exps && exps.length>0) refDate = new Date(exps[0].date);
+    else refDate = new Date(p.created_at); // 沒支出就從建立日算
+    const days = Math.floor((now - refDate) / (1000*60*60*24));
+    if (days >= 30) {
+      await db.from('projects').update({status:'已封存', archived_at: now.toISOString()}).eq('id',p.id);
+      await logAudit('系統自動','封存','專案',p.name,`最後活動滿30天自動封存`);
+    }
+  }
+}
+
+function backToProjects() {
+  document.getElementById('project-detail-view').style.display='none';
+  document.getElementById('projects-list-view').style.display='block';
+  document.getElementById('add-project-btn').style.display = isAdmin ? 'inline-flex' : 'none';
+  loadProjects();
+}
+
+async function loadProjects() {
+  document.getElementById('projects-loading').style.display='block';
+  document.getElementById('projects-cards').innerHTML='';
+  const { data: projs } = await db.from('projects').select('*').order('created_at',{ascending:false});
+  projectsCache = projs || [];
+  // 撈每個專案的支出總額
+  const { data: allExps } = await db.from('expenses').select('project_id,amount').eq('deleted',false).not('project_id','is',null);
+  const totals = {};
+  (allExps||[]).forEach(e=>{ totals[e.project_id]=(totals[e.project_id]||0)+e.amount; });
+
+  document.getElementById('projects-loading').style.display='none';
+  const active = projectsCache.filter(p=>p.status==='進行中');
+  const archived = projectsCache.filter(p=>p.status==='已封存');
+  const card = p => {
+    const total = totals[p.id]||0;
+    const isArch = p.status==='已封存';
+    return `<div class="exp-card" style="cursor:pointer;${isArch?'opacity:0.7':''}" onclick="openProjectDetail('${p.id}')">
+      <div class="exp-card-top">
+        <div>
+          <div class="exp-card-name">${isArch?'🔒 ':'📂 '}${p.name}${isArch?'<span class="edited-label" style="background:var(--bg3);color:var(--text2)">已封存</span>':''}</div>
+          <div class="exp-card-date">建立於 ${p.created_at.slice(0,10)}${p.archived_at?'・封存於 '+p.archived_at.slice(0,10):''}</div>
+        </div>
+        <div class="exp-card-amount">${fmt(total)}</div>
+      </div>
+    </div>`;
+  };
+  let html = '';
+  html += `<div class="card" style="margin-bottom:1rem"><div class="card-title">📂 進行中（${active.length}）</div>${active.length?active.map(card).join(''):'<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">目前沒有進行中的專案</div></div>'}</div>`;
+  if (archived.length>0) {
+    html += `<div class="card"><div class="card-title">🔒 已封存（${archived.length}）</div>${archived.map(card).join('')}</div>`;
+  }
+  document.getElementById('projects-cards').innerHTML = html;
+}
+
+async function openProjectDetail(projectId) {
+  const p = projectsCache.find(x=>x.id===projectId) || (await db.from('projects').select('*').eq('id',projectId).single()).data;
+  if (!p) return;
+  document.getElementById('projects-list-view').style.display='none';
+  document.getElementById('project-detail-view').style.display='block';
+  const isArch = p.status==='已封存';
+  const [{data:exps},{data:reps}] = await Promise.all([
+    db.from('expenses').select('*').eq('deleted',false).eq('project_id',projectId).order('date',{ascending:false}),
+    db.from('repayments').select('*').eq('deleted',false).eq('project_id',projectId).order('date',{ascending:false})
+  ]);
+  const {stats, pairs, pendingMap} = computeSettlement(exps, reps);
+  const total = (exps||[]).reduce((s,e)=>s+e.amount,0);
+  const catEmoji={'生活與健康':'💊','節慶與生日':'🎉','家族出遊':'✈️','固定雜項':'📦'};
+
+  let html = `<div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+      <div>
+        <div class="card-title" style="margin-bottom:4px">${isArch?'🔒 ':'📂 '}${p.name}</div>
+        <div style="font-size:12px;color:var(--text3)">總支出 ${fmt(total)}・${isArch?'已封存於 '+p.archived_at.slice(0,10):'進行中'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        ${!isArch ? `<button class="btn btn-mint btn-sm" onclick="addProjectExpense('${projectId}')">＋ 記一筆</button>` : ''}
+        ${isArch && isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="unarchiveProject('${projectId}')">🔓 解封</button>` : ''}
+        ${!isArch && isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="archiveProjectNow('${projectId}')">📦 結案封存</button>` : ''}
+        ${isAdmin ? `<button class="btn btn-danger btn-sm" onclick="deleteProject('${projectId}','${p.name.replace(/'/g,'')}')">🗑</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+
+  // 結算卡
+  html += `<div class="settlement-grid" style="margin-bottom:1rem">${renderMemberCards(stats)}</div>`;
+  // 清償建議
+  if (pairs.length>0 || true) {
+    html += `<div class="card suggested-card" style="margin-bottom:1rem">
+      <div class="card-title">💡 建議清償動作</div>
+      ${renderSettlementActions(pairs, pendingMap, 'proj-'+projectId+'-', isArch)}
+    </div>`;
+  }
+  // 支出明細
+  html += `<div class="card"><div class="card-title">🧾 支出明細</div>`;
+  if (!exps || exps.length===0) {
+    html += `<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出</div></div>`;
+  } else {
+    html += `<div class="card-list">` + exps.map(e=>`<div class="exp-card">
+      <div class="exp-card-top">
+        <div><div class="exp-card-name">${e.name}${e.updated_at?'<span class="edited-label">已修改</span>':''}</div>
+        <div class="exp-card-date">📅 ${e.date}</div></div>
+        <div class="exp-card-amount">${fmt(e.amount)}</div>
+      </div>
+      <div class="exp-card-meta">
+        <span style="display:flex;align-items:center;gap:3px;font-size:12px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div>${e.payer} 代墊</span>
+        <span class="tag">${e.split_type}</span>
+      </div>
+      <div class="exp-card-shares">
+        <div class="exp-card-share"><div class="scs-name"><span class="avatar av-婷" style="width:16px;height:16px;font-size:8px">婷</span>千婷</div><div class="scs-amt">${fmt(e['share_千婷'])}</div></div>
+        <div class="exp-card-share"><div class="scs-name"><span class="avatar av-立" style="width:16px;height:16px;font-size:8px">立</span>立德</div><div class="scs-amt">${fmt(e['share_立德'])}</div></div>
+        <div class="exp-card-share"><div class="scs-name"><span class="avatar av-士" style="width:16px;height:16px;font-size:8px">士</span>士德</div><div class="scs-amt">${fmt(e['share_士德'])}</div></div>
+      </div>
+      ${(isAdmin&&!isArch)?`<div class="exp-card-bottom"><div class="exp-card-note">${e.note?'📌 '+e.note:''}</div><div class="exp-card-actions"><button class="btn btn-ghost btn-sm" onclick="openEditExpense('${e.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delExpenseProj('${e.id}','${projectId}')">🗑</button></div></div>`:(e.note?`<div class="exp-card-note">📌 ${e.note}</div>`:'')}
+    </div>`).join('') + `</div>`;
+  }
+  html += `</div>`;
+
+  document.getElementById('project-detail-content').innerHTML = html;
+  window._currentProjectId = projectId;
+}
+
+async function delExpenseProj(id, projectId) {
+  if (!isAdmin) { showToast('只有千婷可以刪除',false); return; }
+  const { data: e } = await db.from('expenses').select('*').eq('id',id).single();
+  if (e && isLocked(e)) { showToast('🔒 此紀錄已鎖定無法刪除',false); return; }
+  if (!confirm('確定刪除這筆專案支出？（移到垃圾桶）')) return;
+  await db.from('expenses').update({deleted:true}).eq('id',id);
+  await logAudit(currentMember,'刪除','支出',e?e.name:'','專案支出移至垃圾桶');
+  showToast('已移到垃圾桶 🗑');
+  openProjectDetail(projectId);
+}
+
+async function archiveProjectNow(projectId) {
+  if (!isAdmin) return;
+  if (!confirm('確定要結案封存這個專案嗎？封存後將轉為唯讀。')) return;
+  const p = projectsCache.find(x=>x.id===projectId);
+  await db.from('projects').update({status:'已封存', archived_at:new Date().toISOString()}).eq('id',projectId);
+  await logAudit(currentMember,'封存','專案',p?p.name:'','手動結案封存');
+  showToast('專案已封存 📦');
+  openProjectDetail(projectId);
+}
+async function unarchiveProject(projectId) {
+  if (!isAdmin) return;
+  if (!confirm('確定要解封這個專案嗎？解封後可重新編輯。')) return;
+  const p = projectsCache.find(x=>x.id===projectId);
+  await db.from('projects').update({status:'進行中', archived_at:null}).eq('id',projectId);
+  await logAudit(currentMember,'解封','專案',p?p.name:'','管理員解封');
+  showToast('專案已解封 🔓');
+  openProjectDetail(projectId);
+}
+async function deleteProject(projectId, name) {
+  if (!isAdmin) return;
+  const { data: exps } = await db.from('expenses').select('id').eq('project_id',projectId).eq('deleted',false).limit(1);
+  if (exps && exps.length>0) { showToast('專案內還有支出，無法刪除（請先清空）',false); return; }
+  if (!confirm(`確定刪除空專案「${name}」嗎？`)) return;
+  await db.from('projects').delete().eq('id',projectId);
+  await logAudit(currentMember,'刪除','專案',name,'刪除空專案');
+  showToast('專案已刪除');
+  backToProjects();
+}
+
+// 在專案內記一筆支出：跳到新增支出頁，鎖定 project
+function addProjectExpense(projectId) {
+  window._pendingProjectId = projectId;
+  const p = projectsCache.find(x=>x.id===projectId);
+  switchTab('expense');
+  showToast(`記到專案「${p?p.name:''}」，儲存後回專案頁`);
+  // 顯示提示條
+  const banner = document.getElementById('exp-project-banner');
+  if (banner) { banner.style.display='block'; banner.querySelector('span').textContent = p?p.name:''; }
 }
 
 // ── 鎖定機制（建立滿1個月自動鎖定）──
@@ -1282,16 +1554,21 @@ function toggleEmergencyUnlock() {
   document.getElementById('emergency-unlock-btn').textContent = emergencyUnlock ? '🔓 解鎖中（點此關閉）' : '🔒 緊急解鎖';
 }
 
-function toggleSettle(i) {
-  const d = document.getElementById('settle-detail-'+i);
-  const t = document.getElementById('settle-toggle-'+i);
-  const open = d.style.display==='none';
-  d.style.display = open ? 'block' : 'none';
-  t.textContent = open ? '收合明細 ▴' : '展開明細 ▾';
-}
-
-// 一鍵記錄還款：跳到新增還款頁並自動帶入
-function quickRepay(debtor, creditor, amount) {
+// 一鍵記錄還款：一般帳跳到還款頁帶入；專案帳直接寫入該專案
+async function quickRepay(debtor, creditor, amount, projectId) {
+  if (projectId) {
+    // 專案帳還款：直接寫入（待確認），不離開專案頁
+    const { error } = await db.from('repayments').insert({
+      date: new Date().toISOString().slice(0,10),
+      from_member: debtor, to_member: creditor, amount,
+      note: '專案清償', created_by: currentMember, confirmed:false, project_id: projectId
+    });
+    if (error) { showToast('記錄失敗：'+error.message, false); return; }
+    await logAudit(currentMember, '新增', '還款', `${debtor}→${creditor}`, `專案清償 ${fmt(amount)}，待確認`);
+    showToast(`已送出，待 ${creditor} 確認收款 ⏳`);
+    openProjectDetail(projectId);
+    return;
+  }
   switchTab('repay');
   document.getElementById('rep-from').value = debtor;
   document.getElementById('rep-to').value = creditor;
@@ -1303,8 +1580,8 @@ async function loadHistory() {
   ['exp-history-loading','rep-history-loading'].forEach(id=>{document.getElementById(id).style.display='block';});
   ['exp-history-content','rep-history-content'].forEach(id=>{document.getElementById(id).style.display='none';});
   let [{data:allExps},{data:allReps}]=await Promise.all([
-    db.from('expenses').select('*').eq('deleted',false).order('date',{ascending:false}),
-    db.from('repayments').select('*').eq('deleted',false).order('date',{ascending:false})
+    db.from('expenses').select('*').eq('deleted',false).is('project_id',null).order('date',{ascending:false}),
+    db.from('repayments').select('*').eq('deleted',false).is('project_id',null).order('date',{ascending:false})
   ]);
   expensesCache = allExps||[];
   repaymentsCache = allReps||[];
@@ -1574,7 +1851,8 @@ async function saveEdit() {
     await logAudit(currentMember, '修改', '支出', newVals.name, diffs.length?diffs.join('；'):'無變更');
     showToast('已更新 ✏️');
     closeEditModal();
-    loadHistory();
+    if (editContext.orig && editContext.orig.project_id) { openProjectDetail(editContext.orig.project_id); }
+    else loadHistory();
     return;
   } else if (editContext.type==='repayment') {
     const from_member = document.getElementById('ed-from').value;
@@ -1985,13 +2263,15 @@ async function loadProfile() {
     pYearSel.innerHTML=opts; pYearSel.value=String(cy); pYearSel.dataset.filled='1';
   }
   const pYr = pYearSel.value;
+  const scope = document.getElementById('profile-scope-filter').value; // general | all
+  const byScope = (arr) => scope==='all' ? arr : arr.filter(x=>!x.project_id);
   const byPYear = (arr,dateKey='date') => (pYr==='all') ? arr : arr.filter(x=>x[dateKey] && x[dateKey].startsWith(pYr));
   const [{data:exps},{data:reps}] = await Promise.all([
     db.from('expenses').select('*').eq('deleted',false),
     db.from('repayments').select('*').eq('deleted',false)
   ]);
-  const myExps = byPYear(exps||[]);
-  const myReps = byPYear((reps||[]).filter(r=>r.confirmed!==false));
+  const myExps = byPYear(byScope(exps||[]));
+  const myReps = byPYear(byScope((reps||[]).filter(r=>r.confirmed!==false)));
   const totalPaid = myExps.filter(e=>e.payer===currentMember).reduce((s,e)=>s+e.amount,0);
   const totalOwed = myExps.reduce((s,e)=>s+(e['share_'+currentMember]||0),0);
   const totalSent = myReps.filter(r=>r.from_member===currentMember).reduce((s,r)=>s+r.amount,0);
