@@ -259,6 +259,10 @@ tr:hover td { background:var(--bg2); }
 .toast-err { background:linear-gradient(135deg,var(--red),#EC4899); color:#fff; }
 .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
 
+/* ── Avatar dropdown menu ── */
+.avatar-menu-item { display:block; width:100%; text-align:left; padding:11px 16px; font-size:14px; background:none; border:none; cursor:pointer; color:var(--text); transition:background 0.15s; }
+.avatar-menu-item:hover { background:var(--bg2); }
+
 /* ── Tab notification badge ── */
 .tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; margin-left:4px; background:var(--red); color:#fff; border-radius:10px; font-size:10px; font-weight:700; vertical-align:middle; }
 
@@ -379,20 +383,25 @@ tr:hover td { background:var(--bg2); }
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">🎨 可愛風</button>
-      <div class="topbar-user" onclick="logout()">
-        <img id="topbar-avatar" class="user-avatar" src="" alt="">
-        <div>
-          <div class="user-name" id="topbar-name"></div>
-          <div class="logout-hint">點此登出</div>
+      <div style="position:relative">
+        <div class="topbar-user" onclick="toggleAvatarMenu(event)">
+          <img id="topbar-avatar" class="user-avatar" src="" alt="">
+          <div>
+            <div class="user-name" id="topbar-name"></div>
+            <div class="logout-hint">點此開選單 ▾</div>
+          </div>
+        </div>
+        <div id="avatar-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:var(--shadow);z-index:100;min-width:170px;overflow:hidden">
+          <button class="avatar-menu-item" onclick="openAuditModal();closeAvatarMenu()">📜 操作紀錄</button>
+          <button class="avatar-menu-item" id="avatar-menu-trash" onclick="openTrashModal();closeAvatarMenu()">🗑 垃圾桶</button>
+          <div style="border-top:1px solid var(--border)"></div>
+          <button class="avatar-menu-item" onclick="logout()">🚪 登出</button>
         </div>
       </div>
     </div>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('summary')"><span class="tab-icon">📊</span>結算總覽</button>
-    <button class="tab" onclick="switchTab('expense')"><span class="tab-icon">➕</span>新增支出</button>
-    <button class="tab" onclick="switchTab('repay')"><span class="tab-icon">💸</span>新增還款</button>
-    <button class="tab" onclick="switchTab('history')"><span class="tab-icon">📋</span>明細記錄</button>
+    <button class="tab active" onclick="switchTab('summary')"><span class="tab-icon">📊</span>一般帳</button>
     <button class="tab" onclick="switchTab('projects')"><span class="tab-icon">📁</span>專案帳</button>
     <button class="tab" onclick="switchTab('profile')"><span class="tab-icon">🐱</span>個人頁面<span id="profile-badge" class="tab-badge" style="display:none"></span></button>
   </div>
@@ -407,142 +416,44 @@ tr:hover td { background:var(--bg2); }
           <div class="card-title">💡 建議清償動作</div>
           <div id="suggestedActions"></div>
         </div>
-      </div>
-    </div>
 
-    <!-- Expense -->
-    <div id="panel-expense" class="panel">
-      <div class="card">
-        <div class="card-title">➕ 新增支出明細</div>
-        <div id="exp-project-banner" style="display:none;background:var(--mint-light);border:1.5px solid var(--mint);border-radius:var(--radius);padding:8px 12px;margin-bottom:1rem;font-size:13px;display:none;align-items:center;justify-content:space-between">
-          <div>📁 記到專案：<b><span></span></b></div>
-          <button class="btn btn-ghost btn-sm" onclick="clearProjectExpense()">改記一般帳</button>
+        <!-- 新增按鈕 -->
+        <div style="display:flex;gap:8px;margin:1rem 0;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="openExpenseModal()">➕ 新增支出</button>
+          <button class="btn btn-mint btn-sm" onclick="openRepayModal()">💸 新增還款</button>
+          <select id="year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer;margin-left:auto" onchange="loadHistory()"></select>
+          <button class="btn btn-ghost btn-sm" id="emergency-unlock-btn" style="display:none" onclick="toggleEmergencyUnlock()">🔒 緊急解鎖</button>
         </div>
-        <div class="r2">
-          <div class="field"><label>📅 日期</label><input type="date" id="exp-date"></div>
-          <div class="field"><label>📝 支出名稱</label><input type="text" id="exp-name" placeholder="如：宜蘭民宿、健保費"></div>
-        </div>
-        <div class="r2">
-          <div class="field"><label>💰 總金額（元）</label><input type="number" id="exp-amount" placeholder="0" min="1" oninput="recalcSplit()"></div>
-          <div class="field"><label>👤 代墊者</label>
-            <select id="exp-payer">
-              <option value="">請選擇</option>
-              <option>千婷</option><option>士德</option><option>立德</option>
-            </select>
-          </div>
-        </div>
-        <div class="field"><label>🏷️ 分類</label>
-          <select id="exp-category">
-            <option value="">請選擇分類</option>
-            <option value="生活與健康">💊 生活與健康</option>
-            <option value="節慶與生日">🎉 節慶與生日</option>
-            <option value="家族出遊">✈️ 家族出遊</option>
-            <option value="固定雜項">📦 固定雜項</option>
-          </select>
-        </div>
-        <div class="field"><label>⚖️ 分攤方式</label>
-          <select id="exp-split-type" onchange="onSplitTypeChange()">
-            <option value="">請選擇</option>
-            <option value="avg">平均分攤</option>
-            <option value="ratio">自訂比例</option>
-            <option value="custom">自訂金額</option>
-          </select>
-        </div>
-        <div id="ratio-section" style="display:none;margin-bottom:1rem">
-          <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
-          <div class="r3">
-            <div class="field"><label>千婷</label><input type="number" id="ratio-千婷" placeholder="1" min="0" oninput="recalcSplit()"></div>
-            <div class="field"><label>士德</label><input type="number" id="ratio-士德" placeholder="1" min="0" oninput="recalcSplit()"></div>
-            <div class="field"><label>立德</label><input type="number" id="ratio-立德" placeholder="1" min="0" oninput="recalcSplit()"></div>
-          </div>
-        </div>
-        <div id="custom-section" style="display:none;margin-bottom:1rem">
-          <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
-          <div class="r3">
-            <div class="field"><label>千婷（元）</label><input type="number" id="custom-千婷" placeholder="0" min="0" oninput="recalcSplit()"></div>
-            <div class="field"><label>士德（元）</label><input type="number" id="custom-士德" placeholder="0" min="0" oninput="recalcSplit()"></div>
-            <div class="field"><label>立德（元）</label><input type="number" id="custom-立德" placeholder="0" min="0" oninput="recalcSplit()"></div>
-          </div>
-          <div id="custom-validation" style="display:none" class="validation"></div>
-        </div>
-        <div id="split-preview" class="split-preview" style="display:none">
-          <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 應付金額預覽</div>
-          <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="prev-千婷">—</span></div>
-          <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="prev-立德">—</span></div>
-          <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="prev-士德">—</span></div>
-        </div>
-        <div class="field">
-          <label>🧾 發票／購買證明（選填）</label>
-          <div class="upload-area" id="upload-area" onclick="document.getElementById('receipt-input').click()">
-            <div class="upload-icon">📷</div>
-            <div class="upload-text">點擊上傳照片</div>
-            <div class="upload-sub">支援 JPG、PNG，最大 10MB</div>
-          </div>
-          <input type="file" id="receipt-input" accept="image/*" onchange="previewReceipt(this)">
-        </div>
-        <div class="field"><label>📌 備註（選填）</label><textarea id="exp-note" placeholder="補充說明…"></textarea></div>
-        <button class="btn btn-primary" id="exp-save-btn" onclick="saveExpense()">✨ 儲存支出</button>
-      </div>
-    </div>
 
-    <!-- Repay -->
-    <div id="panel-repay" class="panel">
-      <div class="card">
-        <div class="card-title">💸 新增還款紀錄</div>
-        <div class="r2">
-          <div class="field"><label>📅 日期</label><input type="date" id="rep-date"></div>
-          <div class="field"><label>💰 還款金額（元）</label><input type="number" id="rep-amount" placeholder="0" min="1"></div>
+        <!-- 明細記錄（一般帳） -->
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-title">🧾 支出明細</div>
+          <div id="exp-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+          <div id="exp-history-content" style="display:none">
+            <div class="table-wrap desktop-only">
+              <table class="compact-table">
+                <thead><tr><th>日期</th><th>名稱</th><th>總額</th><th>代墊</th><th>分攤</th><th>婷</th><th>立</th><th>士</th><th>票</th><th></th></tr></thead>
+                <tbody id="exp-table-body"></tbody>
+              </table>
+            </div>
+            <div class="card-list mobile-only" id="exp-card-list"></div>
+            <div id="exp-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出紀錄</div></div>
+            <div id="category-stats" style="margin-top:1rem"></div>
+          </div>
         </div>
-        <div class="r2">
-          <div class="field"><label>👤 付款人（還錢者）</label>
-            <select id="rep-from"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+        <div class="card">
+          <div class="card-title">💸 還款紀錄</div>
+          <div id="rep-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
+          <div id="rep-history-content" style="display:none">
+            <div class="table-wrap desktop-only">
+              <table>
+                <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
+                <tbody id="rep-table-body"></tbody>
+              </table>
+            </div>
+            <div class="card-list mobile-only" id="rep-card-list"></div>
+            <div id="rep-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無還款紀錄</div></div>
           </div>
-          <div class="field"><label>👤 收款人（代墊者）</label>
-            <select id="rep-to"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
-          </div>
-        </div>
-        <div class="field"><label>📌 備註（選填）</label><textarea id="rep-note" placeholder="補充說明…"></textarea></div>
-        <button class="btn btn-primary" id="rep-save-btn" onclick="saveRepayment()">✨ 儲存還款</button>
-      </div>
-    </div>
-
-    <!-- History -->
-    <div id="panel-history" class="panel">
-      <!-- 小按鈕列：操作紀錄（所有人）+ 垃圾桶（僅管理員）+ 年度檢視 -->
-      <div style="display:flex;gap:8px;margin-bottom:0.5rem;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-ghost btn-sm" onclick="openAuditModal()">📜 操作紀錄</button>
-        <button class="btn btn-ghost btn-sm" id="trash-btn" style="display:none" onclick="openTrashModal()">🗑 垃圾桶</button>
-        <select id="year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadHistory()"></select>
-        <button class="btn btn-ghost btn-sm" id="emergency-unlock-btn" style="display:none;margin-left:auto" onclick="toggleEmergencyUnlock()">🔒 緊急解鎖</button>
-      </div>
-
-      <div class="card" style="margin-bottom:1rem">
-        <div class="card-title">🧾 支出明細</div>
-        <div id="exp-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
-        <div id="exp-history-content" style="display:none">
-          <div class="table-wrap desktop-only">
-            <table class="compact-table">
-              <thead><tr><th>日期</th><th>名稱</th><th>總額</th><th>代墊</th><th>分攤</th><th>婷</th><th>立</th><th>士</th><th>票</th><th></th></tr></thead>
-              <tbody id="exp-table-body"></tbody>
-            </table>
-          </div>
-          <div class="card-list mobile-only" id="exp-card-list"></div>
-          <div id="exp-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出紀錄</div></div>
-          <div id="category-stats" style="margin-top:1rem"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">💸 還款紀錄</div>
-        <div id="rep-history-loading" class="loading"><span class="loading-emoji">⭐</span>載入中…</div>
-        <div id="rep-history-content" style="display:none">
-          <div class="table-wrap desktop-only">
-            <table>
-              <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
-              <tbody id="rep-table-body"></tbody>
-            </table>
-          </div>
-          <div class="card-list mobile-only" id="rep-card-list"></div>
-          <div id="rep-empty" class="empty" style="display:none"><div class="empty-emoji">📭</div><div class="empty-text">尚無還款紀錄</div></div>
         </div>
       </div>
     </div>
@@ -637,7 +548,14 @@ tr:hover td { background:var(--bg2); }
         </div>
 
         <div class="card">
-          <div class="card-title">📒 我的收支明細</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">📒 我的收支明細</div>
+            <select id="myhist-scope-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()">
+              <option value="general">一般帳</option>
+              <option value="project">專案帳</option>
+              <option value="all">全部</option>
+            </select>
+          </div>
           <div id="my-history"></div>
         </div>
       </div>
@@ -793,6 +711,107 @@ tr:hover td { background:var(--bg2); }
       <div class="cat-grid" id="cat-grid"></div>
       <div id="decision-items"></div>
     </div>
+  </div>
+</div>
+
+<!-- 新增支出 Modal -->
+<div id="expense-modal" class="modal-overlay" style="display:none" onclick="closeGenericModal('expense-modal')">
+  <div class="generic-modal-box" onclick="event.stopPropagation()">
+    <div class="generic-modal-head">
+      <div class="card-title" style="margin-bottom:0">➕ 新增支出</div>
+      <button class="modal-x" onclick="closeGenericModal('expense-modal')">✕</button>
+    </div>
+    <div id="exp-project-banner" style="display:none;background:var(--mint-light);border:1.5px solid var(--mint);border-radius:var(--radius);padding:8px 12px;margin-bottom:1rem;font-size:13px;align-items:center;justify-content:space-between">
+      <div>📁 記到專案：<b><span></span></b></div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>📅 日期</label><input type="date" id="exp-date"></div>
+      <div class="field"><label>📝 支出名稱</label><input type="text" id="exp-name" placeholder="如：宜蘭民宿、健保費"></div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>💰 總金額（元）</label><input type="number" id="exp-amount" placeholder="0" min="1" oninput="recalcSplit()"></div>
+      <div class="field"><label>👤 代墊者</label>
+        <select id="exp-payer">
+          <option value="">請選擇</option>
+          <option>千婷</option><option>士德</option><option>立德</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="exp-category-field"><label>🏷️ 分類</label>
+      <select id="exp-category">
+        <option value="">請選擇分類</option>
+        <option value="生活與健康">💊 生活與健康</option>
+        <option value="節慶與生日">🎉 節慶與生日</option>
+        <option value="家族出遊">✈️ 家族出遊</option>
+        <option value="固定雜項">📦 固定雜項</option>
+      </select>
+    </div>
+    <div class="field"><label>⚖️ 分攤方式</label>
+      <select id="exp-split-type" onchange="onSplitTypeChange()">
+        <option value="">請選擇</option>
+        <option value="avg">平均分攤</option>
+        <option value="ratio">自訂比例</option>
+        <option value="custom">自訂金額</option>
+      </select>
+    </div>
+    <div id="ratio-section" style="display:none;margin-bottom:1rem">
+      <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
+      <div class="r3">
+        <div class="field"><label>千婷</label><input type="number" id="ratio-千婷" placeholder="1" min="0" oninput="recalcSplit()"></div>
+        <div class="field"><label>士德</label><input type="number" id="ratio-士德" placeholder="1" min="0" oninput="recalcSplit()"></div>
+        <div class="field"><label>立德</label><input type="number" id="ratio-立德" placeholder="1" min="0" oninput="recalcSplit()"></div>
+      </div>
+    </div>
+    <div id="custom-section" style="display:none;margin-bottom:1rem">
+      <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
+      <div class="r3">
+        <div class="field"><label>千婷（元）</label><input type="number" id="custom-千婷" placeholder="0" min="0" oninput="recalcSplit()"></div>
+        <div class="field"><label>士德（元）</label><input type="number" id="custom-士德" placeholder="0" min="0" oninput="recalcSplit()"></div>
+        <div class="field"><label>立德（元）</label><input type="number" id="custom-立德" placeholder="0" min="0" oninput="recalcSplit()"></div>
+      </div>
+      <div id="custom-validation" style="display:none" class="validation"></div>
+    </div>
+    <div id="split-preview" class="split-preview" style="display:none">
+      <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:8px">💳 應付金額預覽</div>
+      <div class="split-row"><span class="split-member"><span class="avatar av-婷" style="width:22px;height:22px;font-size:10px">婷</span>千婷</span><span class="split-amt" id="prev-千婷">—</span></div>
+      <div class="split-row"><span class="split-member"><span class="avatar av-立" style="width:22px;height:22px;font-size:10px">立</span>立德</span><span class="split-amt" id="prev-立德">—</span></div>
+      <div class="split-row"><span class="split-member"><span class="avatar av-士" style="width:22px;height:22px;font-size:10px">士</span>士德</span><span class="split-amt" id="prev-士德">—</span></div>
+    </div>
+    <div class="field">
+      <label>🧾 發票／購買證明（選填）</label>
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('receipt-input').click()">
+        <div class="upload-icon">📷</div>
+        <div class="upload-text">點擊上傳照片</div>
+        <div class="upload-sub">支援 JPG、PNG，最大 10MB</div>
+      </div>
+      <input type="file" id="receipt-input" accept="image/*" onchange="previewReceipt(this)">
+    </div>
+    <div class="field"><label>📌 備註（選填）</label><textarea id="exp-note" placeholder="補充說明…"></textarea></div>
+    <button class="btn btn-primary" id="exp-save-btn" onclick="saveExpense()">✨ 儲存支出</button>
+  </div>
+</div>
+
+<!-- 新增還款 Modal -->
+<div id="repay-modal" class="modal-overlay" style="display:none" onclick="closeGenericModal('repay-modal')">
+  <div class="generic-modal-box" onclick="event.stopPropagation()">
+    <div class="generic-modal-head">
+      <div class="card-title" style="margin-bottom:0">💸 新增還款</div>
+      <button class="modal-x" onclick="closeGenericModal('repay-modal')">✕</button>
+    </div>
+    <div class="r2">
+      <div class="field"><label>📅 日期</label><input type="date" id="rep-date"></div>
+      <div class="field"><label>💰 還款金額（元）</label><input type="number" id="rep-amount" placeholder="0" min="1"></div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>👤 付款人（還錢者）</label>
+        <select id="rep-from"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+      </div>
+      <div class="field"><label>👤 收款人（代墊者）</label>
+        <select id="rep-to"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+      </div>
+    </div>
+    <div class="field"><label>📌 備註（選填）</label><textarea id="rep-note" placeholder="補充說明…"></textarea></div>
+    <button class="btn btn-primary" id="rep-save-btn" onclick="saveRepayment()">✨ 儲存還款</button>
   </div>
 </div>
 
@@ -989,14 +1008,45 @@ function showToast(msg, ok=true) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 function switchTab(name) {
-  const names = ['summary','expense','repay','history','projects','profile'];
+  const names = ['summary','projects','profile'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
-  if (name==='summary') loadSummary();
-  if (name==='history') { populateYearFilter(); loadHistory(); document.getElementById('trash-btn').style.display = isAdmin ? 'inline-flex' : 'none'; document.getElementById('emergency-unlock-btn').style.display = isAdmin ? 'inline-flex' : 'none'; }
+  if (name==='summary') { populateYearFilter(); loadSummary(); loadHistory(); document.getElementById('emergency-unlock-btn').style.display = isAdmin ? 'inline-flex' : 'none'; }
   if (name==='profile') { loadProfile(); }
   if (name==='projects') { backToProjects(); }
+}
+
+// 頭像下拉選單
+function toggleAvatarMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('avatar-menu');
+  const show = menu.style.display==='none';
+  menu.style.display = show ? 'block' : 'none';
+  if (show) {
+    document.getElementById('avatar-menu-trash').style.display = isAdmin ? 'block' : 'none';
+  }
+}
+function closeAvatarMenu() { document.getElementById('avatar-menu').style.display='none'; }
+document.addEventListener('click', (e)=>{
+  const menu = document.getElementById('avatar-menu');
+  if (menu && menu.style.display==='block' && !e.target.closest('#avatar-menu') && !e.target.closest('.topbar-user')) {
+    menu.style.display='none';
+  }
+});
+
+// 新增支出 / 還款 Modal
+function openExpenseModal() {
+  window._pendingProjectId = null;
+  document.getElementById('exp-project-banner').style.display='none';
+  document.getElementById('exp-category-field').style.display='block';
+  setToday();
+  document.getElementById('expense-modal').style.display='flex';
+}
+function openRepayModal() {
+  window._pendingRepayProjectId = null;
+  setToday();
+  document.getElementById('repay-modal').style.display='flex';
 }
 
 function populateYearFilter() {
@@ -1127,13 +1177,16 @@ async function saveExpense() {
   document.getElementById('upload-area').innerHTML='<div class="upload-icon">📷</div><div class="upload-text">點擊上傳照片</div><div class="upload-sub">支援 JPG、PNG，最大 10MB</div>';
   document.getElementById('receipt-input').value='';
   setToday(); splitVals={千婷:0,士德:0,立德:0};
+  closeGenericModal('expense-modal');
   // 若是專案支出，存完回到該專案頁
   if (projectId) {
     const pid = projectId;
     window._pendingProjectId = null;
     document.getElementById('exp-project-banner').style.display='none';
-    switchTab('projects');
-    setTimeout(()=>openProjectDetail(pid), 100);
+    openProjectDetail(pid);
+  } else {
+    loadSummary();
+    loadHistory();
   }
 }
 
@@ -1154,14 +1207,24 @@ async function saveRepayment() {
   if (from_member===to_member) { showToast('付款人與收款人不能相同',false); return; }
   const btn=document.getElementById('rep-save-btn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 儲存中…';
-  const { error } = await db.from('repayments').insert({date,from_member,to_member,amount,note:note||null,created_by:currentMember,confirmed:false});
+  const repayProjectId = window._pendingRepayProjectId || null;
+  const { error } = await db.from('repayments').insert({date,from_member,to_member,amount,note:note||null,created_by:currentMember,confirmed:false,project_id:repayProjectId});
   btn.disabled=false; btn.innerHTML='✨ 儲存還款';
   if (error) { showToast('儲存失敗：'+error.message,false); return; }
   showToast(`已送出，待 ${to_member} 確認收款 ⏳`);
-  await logAudit(currentMember, '新增', '還款', `${from_member}→${to_member}`, `金額 ${fmt(amount)}，待確認`);
+  await logAudit(currentMember, '新增', '還款', `${from_member}→${to_member}`, `金額 ${fmt(amount)}${repayProjectId?'（專案）':''}，待確認`);
   ['rep-amount','rep-note'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('rep-from').value=''; document.getElementById('rep-to').value='';
   setToday();
+  closeGenericModal('repay-modal');
+  if (repayProjectId) {
+    const pid = repayProjectId;
+    window._pendingRepayProjectId = null;
+    openProjectDetail(pid);
+  } else {
+    loadSummary();
+    loadHistory();
+  }
 }
 
 // ── Summary ───────────────────────────────────────────
@@ -1432,7 +1495,9 @@ async function openProjectDetail(projectId) {
         <div style="font-size:12px;color:var(--text3)">總支出 ${fmt(total)}・${isArch?'已封存於 '+p.archived_at.slice(0,10):'進行中'}</div>
       </div>
       <div style="display:flex;gap:6px">
-        ${!isArch ? `<button class="btn btn-mint btn-sm" onclick="addProjectExpense('${projectId}')">＋ 記一筆</button>` : ''}
+        ${!isArch ? `<button class="btn btn-mint btn-sm" onclick="addProjectExpense('${projectId}')">＋ 記支出</button>` : ''}
+        ${!isArch ? `<button class="btn btn-ghost btn-sm" onclick="addProjectRepay('${projectId}')">💸 記還款</button>` : ''}
+        ${!isArch && isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="renameProject('${projectId}')">✏️ 改名</button>` : ''}
         ${isArch && isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="unarchiveProject('${projectId}')">🔓 解封</button>` : ''}
         ${!isArch && isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="archiveProjectNow('${projectId}')">📦 結案封存</button>` : ''}
         ${isAdmin ? `<button class="btn btn-danger btn-sm" onclick="deleteProject('${projectId}','${p.name.replace(/'/g,'')}')">🗑</button>` : ''}
@@ -1498,6 +1563,21 @@ async function archiveProjectNow(projectId) {
   showToast('專案已封存 📦');
   openProjectDetail(projectId);
 }
+async function renameProject(projectId) {
+  if (!isAdmin) return;
+  const p = projectsCache.find(x=>x.id===projectId);
+  const oldName = p ? p.name : '';
+  const newName = prompt('輸入新的專案名稱：', oldName);
+  if (newName===null) return; // 取消
+  const trimmed = newName.trim();
+  if (!trimmed) { showToast('名稱不能空白',false); return; }
+  if (trimmed===oldName) return;
+  const { error } = await db.from('projects').update({name:trimmed}).eq('id',projectId);
+  if (error) { showToast('改名失敗：'+error.message,false); return; }
+  await logAudit(currentMember,'修改','專案',trimmed,`名稱「${oldName}」→「${trimmed}」`);
+  showToast('專案已改名 ✏️');
+  openProjectDetail(projectId);
+}
 async function unarchiveProject(projectId) {
   if (!isAdmin) return;
   if (!confirm('確定要解封這個專案嗎？解封後可重新編輯。')) return;
@@ -1518,15 +1598,23 @@ async function deleteProject(projectId, name) {
   backToProjects();
 }
 
-// 在專案內記一筆支出：跳到新增支出頁，鎖定 project
+// 在專案內記一筆支出：開啟支出 Modal，鎖定 project
 function addProjectExpense(projectId) {
   window._pendingProjectId = projectId;
   const p = projectsCache.find(x=>x.id===projectId);
-  switchTab('expense');
-  showToast(`記到專案「${p?p.name:''}」，儲存後回專案頁`);
-  // 顯示提示條
+  setToday();
+  // 專案支出不需分類，隱藏分類欄
+  document.getElementById('exp-category-field').style.display='none';
   const banner = document.getElementById('exp-project-banner');
-  if (banner) { banner.style.display='block'; banner.querySelector('span').textContent = p?p.name:''; }
+  if (banner) { banner.style.display='flex'; banner.querySelector('span').textContent = p?p.name:''; }
+  document.getElementById('expense-modal').style.display='flex';
+}
+
+// 在專案內記還款：開啟還款 Modal，鎖定 project
+function addProjectRepay(projectId) {
+  window._pendingRepayProjectId = projectId;
+  setToday();
+  document.getElementById('repay-modal').style.display='flex';
 }
 
 // ── 鎖定機制（建立滿1個月自動鎖定）──
@@ -1569,7 +1657,7 @@ async function quickRepay(debtor, creditor, amount, projectId) {
     openProjectDetail(projectId);
     return;
   }
-  switchTab('repay');
+  openRepayModal();
   document.getElementById('rep-from').value = debtor;
   document.getElementById('rep-to').value = creditor;
   document.getElementById('rep-amount').value = amount;
@@ -2013,8 +2101,11 @@ function onDecSplitChange() {
 }
 
 function showAddDecision() {
-  document.getElementById('add-decision-form').style.display='block';
+  const form = document.getElementById('add-decision-form');
+  form.style.display='block';
   onRecurringChange();
+  // 捲動到表單，避免被擋住
+  setTimeout(()=>{ form.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
 }
 
 async function saveDecision() {
@@ -2284,14 +2375,17 @@ async function loadProfile() {
     <div class="stat-box stat-lav"><div class="sb-val" style="color:${net>=0?'var(--green-dark)':'var(--red-dark)'}">${fmt(Math.abs(net))}</div><div class="sb-label">${net>=0?'應收回':'應付出'}</div></div>
   `;
 
-  // 我的收支明細（依年度）
-  const myExpRows = myExps.filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).sort((a,b)=>b.date<a.date?-1:1).slice(0,15);
+  // 我的收支明細（依年度 + 自選範圍）
+  const histScope = document.getElementById('myhist-scope-filter').value; // general|project|all
+  const histScopeFilter = (arr) => histScope==='all' ? arr : histScope==='project' ? arr.filter(x=>x.project_id) : arr.filter(x=>!x.project_id);
+  const histExps = byPYear(histScopeFilter(exps||[]));
+  const myExpRows = histExps.filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).sort((a,b)=>b.date<a.date?-1:1).slice(0,20);
   document.getElementById('my-history').innerHTML = myExpRows.length===0
     ? '<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無相關紀錄</div></div>'
     : `<div class="table-wrap"><table>
         <thead><tr><th>日期</th><th>名稱</th><th>代墊者</th><th>總額</th><th>我的應付</th></tr></thead>
         <tbody>${myExpRows.map(e=>`<tr>
-          <td>${e.date}</td><td>${e.name}</td>
+          <td>${e.date}</td><td>${e.name}${e.project_id?' <span class="tag" style="background:var(--lavender-light);color:var(--lavender)">專案</span>':''}</td>
           <td><div style="display:flex;align-items:center;gap:4px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div>${e.payer}</div></td>
           <td>${fmt(e.amount)}</td>
           <td style="font-weight:700;color:${e.payer===currentMember?'var(--green-dark)':'var(--pink)'}">${e.payer===currentMember?'我代墊':fmt(e['share_'+currentMember])}</td>
@@ -2355,6 +2449,8 @@ async function saveLivingCosts() {
 // 決議預算預估：分定期/不定期/其他，算月預算與年預算
 function renderBudgetEstimate(decs) {
   const m = currentMember;
+  const CAT_ORDER = ['生活與健康','節慶與生日','家族出遊','固定雜項'];
+  const catRank = c => { const i = CAT_ORDER.indexOf(c); return i<0 ? 99 : i; };
   // 分類：定期(每月/每年有金額) vs 不定期(無自動金額)
   let monthlyBudget = 0, yearlyBudget = 0;
   const regularRows = [], irregularRows = [];
@@ -2364,16 +2460,19 @@ function renderBudgetEstimate(decs) {
     if (d.recurring==='每月' && myShare>0) {
       monthlyBudget += myShare;
       yearlyBudget += myShare*12;
-      regularRows.push({title:d.title, period:'每月', mine:myShare, yearly:myShare*12});
+      regularRows.push({title:d.title, period:'每月', mine:myShare, yearly:myShare*12, category:d.category||'其他'});
     } else if (d.recurring==='每年' && myShare>0) {
       yearlyBudget += myShare;
       monthlyBudget += Math.ceil(myShare/12);
-      regularRows.push({title:d.title, period:'每年', mine:myShare, yearly:myShare});
+      regularRows.push({title:d.title, period:'每年', mine:myShare, yearly:myShare, category:d.category||'其他'});
     } else {
-      // 不定期或無金額
-      irregularRows.push({title:d.title, rule:d.split_rule||'—', amount:d.amount||'視實際發生'});
+      irregularRows.push({title:d.title, rule:d.split_rule||'—', amount:d.amount||'視實際發生', category:d.category||'其他'});
     }
   });
+  // 依類別排序
+  regularRows.sort((a,b)=> catRank(a.category)-catRank(b.category));
+  irregularRows.sort((a,b)=> catRank(a.category)-catRank(b.category));
+  const catEmoji={'生活與健康':'💊','節慶與生日':'🎉','家族出遊':'✈️','固定雜項':'📦','其他':'🏷️'};
 
   const el = document.getElementById('budget-estimate');
   el.innerHTML = `
@@ -2384,8 +2483,9 @@ function renderBudgetEstimate(decs) {
     ${regularRows.length>0 ? `
       <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin:12px 0 6px">🔁 定期分攤項目</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>項目</th><th>週期</th><th>我的分攤</th><th>年度</th></tr></thead>
+        <thead><tr><th>類別</th><th>項目</th><th>週期</th><th>我的分攤</th><th>年度</th></tr></thead>
         <tbody>${regularRows.map(r=>`<tr>
+          <td style="white-space:nowrap;font-size:12px">${catEmoji[r.category]||'🏷️'} ${r.category.replace('與','')}</td>
           <td style="font-weight:600">${r.title}</td>
           <td><span class="tag tag-avg">${r.period}</span></td>
           <td style="font-weight:700;color:var(--pink)">${fmt(r.mine)}</td>
@@ -2395,8 +2495,9 @@ function renderBudgetEstimate(decs) {
     ${irregularRows.length>0 ? `
       <div style="font-size:13px;font-weight:700;color:var(--peach);margin:16px 0 6px">📋 不定期／其他項目（金額待實際發生）</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>項目</th><th>分攤原則</th><th>預估</th></tr></thead>
+        <thead><tr><th>類別</th><th>項目</th><th>分攤原則</th><th>預估</th></tr></thead>
         <tbody>${irregularRows.map(r=>`<tr>
+          <td style="white-space:nowrap;font-size:12px">${catEmoji[r.category]||'🏷️'} ${r.category.replace('與','')}</td>
           <td style="font-weight:600">${r.title}</td>
           <td style="color:var(--text2)">${r.rule}</td>
           <td style="color:var(--text3)">${r.amount}</td>
