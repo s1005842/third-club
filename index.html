@@ -538,8 +538,9 @@ tr:hover td { background:var(--bg2); }
             <div class="card-title" style="margin-bottom:0">🧸 個人統計</div>
             <div style="display:flex;gap:6px">
               <select id="profile-scope-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()">
-                <option value="general">只看一般帳</option>
-                <option value="all">含專案帳</option>
+                <option value="all">全部</option>
+                <option value="general">一般帳</option>
+                <option value="project">專案帳</option>
               </select>
               <select id="profile-year-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()"></select>
             </div>
@@ -548,14 +549,7 @@ tr:hover td { background:var(--bg2); }
         </div>
 
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
-            <div class="card-title" style="margin-bottom:0">📒 我的收支明細</div>
-            <select id="myhist-scope-filter" class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="loadProfile()">
-              <option value="general">一般帳</option>
-              <option value="project">專案帳</option>
-              <option value="all">全部</option>
-            </select>
-          </div>
+          <div class="card-title">📒 我的收支明細</div>
           <div id="my-history"></div>
         </div>
       </div>
@@ -668,7 +662,7 @@ tr:hover td { background:var(--bg2); }
           </div>
           <div class="field"><label>每期總金額（元）</label><input type="number" id="new-auto-amount" placeholder="0" min="0" oninput="onDecSplitChange()"></div>
           <div class="field"><label>代墊者（誰先付）</label>
-            <select id="new-payer"><option>千婷</option><option>士德</option><option>立德</option></select>
+            <select id="new-payer"><option>千婷</option><option>立德</option><option>士德</option></select>
           </div>
           <div class="field"><label>⚖️ 分攤方式</label>
             <select id="new-split-type" onchange="onDecSplitChange()">
@@ -681,16 +675,16 @@ tr:hover td { background:var(--bg2); }
             <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
             <div class="r3">
               <div class="field"><label>千婷</label><input type="number" id="dec-ratio-千婷" value="1" min="0" oninput="onDecSplitChange()"></div>
-              <div class="field"><label>士德</label><input type="number" id="dec-ratio-士德" value="1" min="0" oninput="onDecSplitChange()"></div>
               <div class="field"><label>立德</label><input type="number" id="dec-ratio-立德" value="1" min="0" oninput="onDecSplitChange()"></div>
+              <div class="field"><label>士德</label><input type="number" id="dec-ratio-士德" value="1" min="0" oninput="onDecSplitChange()"></div>
             </div>
           </div>
           <div id="dec-custom-section" style="display:none">
             <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
             <div class="r3">
               <div class="field"><label>千婷</label><input type="number" id="dec-custom-千婷" value="0" min="0" oninput="onDecSplitChange()"></div>
-              <div class="field"><label>士德</label><input type="number" id="dec-custom-士德" value="0" min="0" oninput="onDecSplitChange()"></div>
               <div class="field"><label>立德</label><input type="number" id="dec-custom-立德" value="0" min="0" oninput="onDecSplitChange()"></div>
+              <div class="field"><label>士德</label><input type="number" id="dec-custom-士德" value="0" min="0" oninput="onDecSplitChange()"></div>
             </div>
             <div id="dec-validation" class="validation" style="display:none"></div>
           </div>
@@ -733,7 +727,7 @@ tr:hover td { background:var(--bg2); }
       <div class="field"><label>👤 代墊者</label>
         <select id="exp-payer">
           <option value="">請選擇</option>
-          <option>千婷</option><option>士德</option><option>立德</option>
+          <option>千婷</option><option>立德</option><option>士德</option>
         </select>
       </div>
     </div>
@@ -758,16 +752,16 @@ tr:hover td { background:var(--bg2); }
       <div class="field" style="margin-bottom:4px"><label>三人比例</label></div>
       <div class="r3">
         <div class="field"><label>千婷</label><input type="number" id="ratio-千婷" placeholder="1" min="0" oninput="recalcSplit()"></div>
-        <div class="field"><label>士德</label><input type="number" id="ratio-士德" placeholder="1" min="0" oninput="recalcSplit()"></div>
         <div class="field"><label>立德</label><input type="number" id="ratio-立德" placeholder="1" min="0" oninput="recalcSplit()"></div>
+        <div class="field"><label>士德</label><input type="number" id="ratio-士德" placeholder="1" min="0" oninput="recalcSplit()"></div>
       </div>
     </div>
     <div id="custom-section" style="display:none;margin-bottom:1rem">
       <div class="field" style="margin-bottom:4px"><label>各人應付金額</label></div>
       <div class="r3">
         <div class="field"><label>千婷（元）</label><input type="number" id="custom-千婷" placeholder="0" min="0" oninput="recalcSplit()"></div>
-        <div class="field"><label>士德（元）</label><input type="number" id="custom-士德" placeholder="0" min="0" oninput="recalcSplit()"></div>
         <div class="field"><label>立德（元）</label><input type="number" id="custom-立德" placeholder="0" min="0" oninput="recalcSplit()"></div>
+        <div class="field"><label>士德（元）</label><input type="number" id="custom-士德" placeholder="0" min="0" oninput="recalcSplit()"></div>
       </div>
       <div id="custom-validation" style="display:none" class="validation"></div>
     </div>
@@ -804,10 +798,10 @@ tr:hover td { background:var(--bg2); }
     </div>
     <div class="r2">
       <div class="field"><label>👤 付款人（還錢者）</label>
-        <select id="rep-from"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+        <select id="rep-from"><option value="">請選擇</option><option>千婷</option><option>立德</option><option>士德</option></select>
       </div>
       <div class="field"><label>👤 收款人（代墊者）</label>
-        <select id="rep-to"><option value="">請選擇</option><option>千婷</option><option>士德</option><option>立德</option></select>
+        <select id="rep-to"><option value="">請選擇</option><option>千婷</option><option>立德</option><option>士德</option></select>
       </div>
     </div>
     <div class="field"><label>📌 備註（選填）</label><textarea id="rep-note" placeholder="補充說明…"></textarea></div>
@@ -828,7 +822,7 @@ const EMAIL_MAP = {
   'p5p50p5p@gmail.com': '立德'
 };
 const ADMIN_EMAIL = 's1005842@gmail.com';
-const MEMBERS = ['千婷','士德','立德'];
+const MEMBERS = ['千婷','立德','士德'];
 const AV_KEY = { '千婷':'婷', '士德':'士', '立德':'立' };
 const MONTHLY_FIXED = {
   '千婷': [
@@ -2357,8 +2351,8 @@ async function loadProfile() {
     pYearSel.innerHTML=opts; pYearSel.value=String(cy); pYearSel.dataset.filled='1';
   }
   const pYr = pYearSel.value;
-  const scope = document.getElementById('profile-scope-filter').value; // general | all
-  const byScope = (arr) => scope==='all' ? arr : arr.filter(x=>!x.project_id);
+  const scope = document.getElementById('profile-scope-filter').value; // all | general | project
+  const byScope = (arr) => scope==='all' ? arr : scope==='project' ? arr.filter(x=>x.project_id) : arr.filter(x=>!x.project_id);
   const byPYear = (arr,dateKey='date') => (pYr==='all') ? arr : arr.filter(x=>x[dateKey] && x[dateKey].startsWith(pYr));
   const [{data:exps},{data:reps}] = await Promise.all([
     db.from('expenses').select('*').eq('deleted',false),
@@ -2378,11 +2372,8 @@ async function loadProfile() {
     <div class="stat-box stat-lav"><div class="sb-val" style="color:${net>=0?'var(--green-dark)':'var(--red-dark)'}">${fmt(Math.abs(net))}</div><div class="sb-label">${net>=0?'應收回':'應付出'}</div></div>
   `;
 
-  // 我的收支明細（依年度 + 自選範圍）
-  const histScope = document.getElementById('myhist-scope-filter').value; // general|project|all
-  const histScopeFilter = (arr) => histScope==='all' ? arr : histScope==='project' ? arr.filter(x=>x.project_id) : arr.filter(x=>!x.project_id);
-  const histExps = byPYear(histScopeFilter(exps||[]));
-  const myExpRows = histExps.filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).sort((a,b)=>b.date<a.date?-1:1).slice(0,20);
+  // 我的收支明細（共用同一組篩選）
+  const myExpRows = myExps.filter(e=>e.payer===currentMember||e['share_'+currentMember]>0).sort((a,b)=>b.date<a.date?-1:1).slice(0,20);
   document.getElementById('my-history').innerHTML = myExpRows.length===0
     ? '<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無相關紀錄</div></div>'
     : `<div class="table-wrap"><table>
@@ -2484,13 +2475,13 @@ function renderBudgetEstimate(decs) {
       <div class="stat-box stat-lav"><div class="sb-val">${fmt(yearlyBudget)}</div><div class="sb-label">每年預算（我的分攤）</div></div>
     </div>
     ${regularRows.length>0 ? `
-      <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin:12px 0 6px">🔁 定期分攤項目</div>
+      <div style="font-size:13px;font-weight:700;color:var(--mint-dark);margin:12px 0 6px">🔁 定期分攤項目 <span style="font-size:11px;color:var(--text3);font-weight:400">（週期第一日入帳）</span></div>
       <div class="table-wrap"><table>
         <thead><tr><th>類別</th><th>項目</th><th>週期</th><th>我的分攤</th><th>年度</th></tr></thead>
         <tbody>${regularRows.map(r=>`<tr>
           <td style="white-space:nowrap;font-size:12px">${catEmoji[r.category]||'🏷️'} ${r.category.replace('與','')}</td>
           <td style="font-weight:600">${r.title}</td>
-          <td><span class="tag tag-avg">${r.period}</span><div style="font-size:10px;color:var(--text3);margin-top:2px">${r.period==='每月'?'每月1日入帳':'指定月份1日入帳'}</div></td>
+          <td><span class="tag tag-avg">${r.period}</span></td>
           <td style="font-weight:700;color:var(--pink)">${fmt(r.mine)}</td>
           <td style="color:var(--text2)">${fmt(r.yearly)}</td>
         </tr>`).join('')}</tbody>
