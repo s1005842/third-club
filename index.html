@@ -1511,28 +1511,84 @@ async function openProjectDetail(projectId) {
       ${renderSettlementActions(pairs, pendingMap, 'proj-'+projectId+'-', isArch)}
     </div>`;
   }
-  // 支出明細
-  html += `<div class="card"><div class="card-title">🧾 支出明細</div>`;
+  // 支出明細（桌機表格 + 手機卡片，與一般帳一致）
+  const tagClass={'平均分攤':'tag-avg','自訂比例':'tag-ratio','自訂金額':'tag-custom'};
+  const shortDate = d => d ? d.slice(2) : d;
+  html += `<div class="card" style="margin-bottom:1rem"><div class="card-title">🧾 支出明細</div>`;
   if (!exps || exps.length===0) {
     html += `<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無支出</div></div>`;
   } else {
-    html += `<div class="card-list">` + exps.map(e=>`<div class="exp-card">
+    // 桌機表格
+    html += `<div class="table-wrap desktop-only"><table class="compact-table">
+      <thead><tr><th>日期</th><th>名稱</th><th>總額</th><th>代墊</th><th>分攤</th><th>婷</th><th>立</th><th>士</th><th>票</th><th></th></tr></thead>
+      <tbody>${exps.map(e=>{
+        const locked = isLocked(e);
+        const actBtns = (isArch||locked)
+          ? (isArch?'<span style="color:var(--text3)">🔒</span>':'<span style="color:var(--text3)" title="已鎖定">🔒</span>')
+          : `<button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditExpense('${e.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delExpenseProj('${e.id}','${projectId}')">🗑</button>`;
+        return `<tr>
+          <td style="white-space:nowrap">${shortDate(e.date)}</td><td class="wrap" style="font-weight:600;min-width:80px">${e.name}${e.updated_at?'<span class="edited-dot" title="已修改"></span>':''}</td>
+          <td style="font-weight:700;color:var(--pink);white-space:nowrap">${fmt(e.amount)}</td>
+          <td><div style="display:flex;align-items:center;gap:3px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div></div></td>
+          <td><span class="tag ${tagClass[e.split_type]||''}">${e.split_type}</span></td>
+          <td style="white-space:nowrap">${fmt(e['share_千婷'])}</td><td style="white-space:nowrap">${fmt(e['share_立德'])}</td><td style="white-space:nowrap">${fmt(e['share_士德'])}</td>
+          <td>${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="票">`:'-'}</td>
+          <td style="white-space:nowrap">${actBtns}</td>
+        </tr>`;}).join('')}</tbody>
+    </table></div>`;
+    // 手機卡片
+    html += `<div class="card-list mobile-only">` + exps.map(e=>{
+      const locked = isLocked(e);
+      return `<div class="exp-card">
       <div class="exp-card-top">
-        <div><div class="exp-card-name">${e.name}${e.updated_at?'<span class="edited-label">已修改</span>':''}</div>
+        <div><div class="exp-card-name">${e.name}${e.updated_at?'<span class="edited-label">已修改</span>':''}${(locked&&!isArch)?'<span class="edited-label" style="background:var(--bg3);color:var(--text2)">🔒 已鎖定</span>':''}</div>
         <div class="exp-card-date">📅 ${e.date}</div></div>
         <div class="exp-card-amount">${fmt(e.amount)}</div>
       </div>
       <div class="exp-card-meta">
         <span style="display:flex;align-items:center;gap:3px;font-size:12px"><div class="avatar av-${AV_KEY[e.payer]}" style="width:18px;height:18px;font-size:8px">${AV_KEY[e.payer]}</div>${e.payer} 代墊</span>
-        <span class="tag">${e.split_type}</span>
+        <span class="tag ${tagClass[e.split_type]||''}">${e.split_type}</span>
+        ${e.receipt_url?`<img src="${e.receipt_url}" class="receipt-thumb" onclick="openModal('${e.receipt_url}')" alt="票">`:''}
       </div>
       <div class="exp-card-shares">
         <div class="exp-card-share"><div class="scs-name"><span class="avatar av-婷" style="width:16px;height:16px;font-size:8px">婷</span>千婷</div><div class="scs-amt">${fmt(e['share_千婷'])}</div></div>
         <div class="exp-card-share"><div class="scs-name"><span class="avatar av-立" style="width:16px;height:16px;font-size:8px">立</span>立德</div><div class="scs-amt">${fmt(e['share_立德'])}</div></div>
         <div class="exp-card-share"><div class="scs-name"><span class="avatar av-士" style="width:16px;height:16px;font-size:8px">士</span>士德</div><div class="scs-amt">${fmt(e['share_士德'])}</div></div>
       </div>
-      ${(isAdmin&&!isArch)?`<div class="exp-card-bottom"><div class="exp-card-note">${e.note?'📌 '+e.note:''}</div><div class="exp-card-actions"><button class="btn btn-ghost btn-sm" onclick="openEditExpense('${e.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delExpenseProj('${e.id}','${projectId}')">🗑</button></div></div>`:(e.note?`<div class="exp-card-note">📌 ${e.note}</div>`:'')}
-    </div>`).join('') + `</div>`;
+      ${(isAdmin&&!isArch&&!locked)?`<div class="exp-card-bottom"><div class="exp-card-note">${e.note?'📌 '+e.note:''}</div><div class="exp-card-actions"><button class="btn btn-ghost btn-sm" onclick="openEditExpense('${e.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delExpenseProj('${e.id}','${projectId}')">🗑</button></div></div>`:(e.note?`<div class="exp-card-note">📌 ${e.note}</div>`:'')}
+    </div>`;}).join('') + `</div>`;
+  }
+  html += `</div>`;
+
+  // 還款紀錄
+  html += `<div class="card"><div class="card-title">💸 還款紀錄</div>`;
+  if (!reps || reps.length===0) {
+    html += `<div class="empty"><div class="empty-emoji">📭</div><div class="empty-text">尚無還款</div></div>`;
+  } else {
+    const pendBadge = r => r.confirmed===false ? '<span class="tag" style="background:var(--bg3);color:var(--text2)">⏳ 待確認</span>' : '';
+    html += `<div class="table-wrap desktop-only"><table>
+      <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
+      <tbody>${reps.map(r=>{
+        const locked = isLocked(r);
+        const actBtns = (isArch||locked) ? '<span style="color:var(--text3)">🔒</span>'
+          : `<button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditRepayment('${r.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepaymentProj('${r.id}','${projectId}')">🗑</button>`;
+        return `<tr ${r.confirmed===false?'style="opacity:0.6"':''}>
+          <td>${r.date}</td><td>${r.from_member}</td><td>${r.to_member}</td>
+          <td style="font-weight:700;color:var(--mint-dark)">${fmt(r.amount)} ${pendBadge(r)}</td>
+          <td style="color:var(--text2);font-size:12px">${r.note||'—'}</td>
+          <td style="white-space:nowrap">${actBtns}</td>
+        </tr>`;}).join('')}</tbody>
+    </table></div>`;
+    html += `<div class="card-list mobile-only">` + reps.map(r=>{
+      const locked = isLocked(r);
+      return `<div class="exp-card" ${r.confirmed===false?'style="opacity:0.7"':''}>
+      <div class="exp-card-top">
+        <div><div class="exp-card-name">${r.from_member} → ${r.to_member} ${r.confirmed===false?'<span class="tag" style="background:var(--bg3);color:var(--text2)">⏳ 待確認</span>':''}</div>
+        <div class="exp-card-date">📅 ${r.date}</div></div>
+        <div class="exp-card-amount" style="color:var(--mint-dark)">${fmt(r.amount)}</div>
+      </div>
+      ${(isAdmin&&!isArch&&!locked)?`<div class="exp-card-bottom"><div class="exp-card-note">${r.note?'📌 '+r.note:''}</div><div class="exp-card-actions"><button class="btn btn-ghost btn-sm" onclick="openEditRepayment('${r.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="delRepaymentProj('${r.id}','${projectId}')">🗑</button></div></div>`:(r.note?`<div class="exp-card-note">📌 ${r.note}</div>`:'')}
+    </div>`;}).join('') + `</div>`;
   }
   html += `</div>`;
 
@@ -1547,6 +1603,17 @@ async function delExpenseProj(id, projectId) {
   if (!confirm('確定刪除這筆專案支出？（移到垃圾桶）')) return;
   await db.from('expenses').update({deleted:true}).eq('id',id);
   await logAudit(currentMember,'刪除','支出',e?e.name:'','專案支出移至垃圾桶');
+  showToast('已移到垃圾桶 🗑');
+  openProjectDetail(projectId);
+}
+
+async function delRepaymentProj(id, projectId) {
+  if (!isAdmin) { showToast('只有千婷可以刪除',false); return; }
+  const { data: r } = await db.from('repayments').select('*').eq('id',id).single();
+  if (r && isLocked(r)) { showToast('🔒 此紀錄已鎖定無法刪除',false); return; }
+  if (!confirm('確定刪除這筆專案還款？（移到垃圾桶）')) return;
+  await db.from('repayments').update({deleted:true}).eq('id',id);
+  await logAudit(currentMember,'刪除','還款',r?`${r.from_member}→${r.to_member}`:'','專案還款移至垃圾桶');
   showToast('已移到垃圾桶 🗑');
   openProjectDetail(projectId);
 }
@@ -1805,11 +1872,13 @@ async function delRepayment(id) {
 // ── Edit Modal ────────────────────────────────────────
 let editContext = null; // { type:'expense'|'repayment', id, splitVals }
 
-function openEditExpense(id) {
+async function openEditExpense(id) {
   if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
-  const e = expensesCache.find(x=>x.id===id);
+  let e = expensesCache.find(x=>x.id===id);
+  if (!e) { e = (await db.from('expenses').select('*').eq('id',id).single()).data; }
   if (!e) return;
   if (isLocked(e)) { showToast('🔒 此紀錄已超過1個月，已鎖定無法編輯',false); return; }
+  const isProj = !!e.project_id;
   editContext = { type:'expense', id, editName:e.name, orig:e, splitVals:{千婷:e['share_千婷'],士德:e['share_士德'],立德:e['share_立德']} };
   document.getElementById('edit-modal-title').textContent = '✏️ 編輯支出';
   document.getElementById('edit-modal-body').innerHTML = `
@@ -1821,7 +1890,7 @@ function openEditExpense(id) {
         <select id="ed-payer">${MEMBERS.map(m=>`<option ${m===e.payer?'selected':''}>${m}</option>`).join('')}</select>
       </div>
     </div>
-    <div class="field"><label>🏷️ 分類</label>
+    <div class="field" style="display:${isProj?'none':'block'}"><label>🏷️ 分類</label>
       <select id="ed-category">
         ${['生活與健康','節慶與生日','家族出遊','固定雜項'].map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('')}
       </select>
@@ -1872,9 +1941,10 @@ function edValidate() {
   msg.textContent = sum===total ? `✓ 合計 ${fmt(sum)} = 總金額` : `合計 ${fmt(sum)} ≠ 總金額 ${fmt(total)}`;
 }
 
-function openEditRepayment(id) {
+async function openEditRepayment(id) {
   if (!isAdmin) { showToast('只有千婷可以編輯',false); return; }
-  const r = repaymentsCache.find(x=>x.id===id);
+  let r = repaymentsCache.find(x=>x.id===id);
+  if (!r) { r = (await db.from('repayments').select('*').eq('id',id).single()).data; }
   if (!r) return;
   if (isLocked(r)) { showToast('🔒 此紀錄已超過1個月，已鎖定無法編輯',false); return; }
   editContext = { type:'repayment', id, editName:`${r.from_member}→${r.to_member}`, orig:r };
@@ -1912,7 +1982,7 @@ async function saveEdit() {
       name: document.getElementById('ed-name').value.trim(),
       amount: total,
       payer: document.getElementById('ed-payer').value,
-      category: document.getElementById('ed-category').value,
+      category: (editContext.orig && editContext.orig.project_id) ? null : document.getElementById('ed-category').value,
       split_type: splitType,
       'share_千婷':sv.千婷,'share_士德':sv.士德,'share_立德':sv.立德,
       note: document.getElementById('ed-note').value.trim()||null,
@@ -1963,7 +2033,8 @@ async function saveEdit() {
     await logAudit(currentMember, '修改', '還款', `${from_member}→${to_member}`, diffs.length?diffs.join('；'):'無變更');
     showToast('已更新 ✏️');
     closeEditModal();
-    loadHistory();
+    if (editContext.orig && editContext.orig.project_id) { openProjectDetail(editContext.orig.project_id); }
+    else loadHistory();
     return;
   } else if (editContext.type==='decision') {
     const title = document.getElementById('ed-title').value.trim();
