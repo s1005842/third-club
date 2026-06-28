@@ -447,7 +447,7 @@ tr:hover td { background:var(--bg2); }
           <div id="rep-history-content" style="display:none">
             <div class="table-wrap desktop-only">
               <table>
-                <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
+                <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th></th></tr></thead>
                 <tbody id="rep-table-body"></tbody>
               </table>
             </div>
@@ -725,7 +725,7 @@ tr:hover td { background:var(--bg2); }
     <div class="r2">
       <div class="field"><label>💰 總金額（元）</label><input type="number" id="exp-amount" placeholder="0" min="1" oninput="recalcSplit()"></div>
       <div class="field"><label>👤 代墊者</label>
-        <select id="exp-payer">
+        <select id="exp-payer" onchange="recalcSplit()">
           <option value="">請選擇</option>
           <option>千婷</option><option>立德</option><option>士德</option>
         </select>
@@ -968,16 +968,22 @@ async function autoGenerateRecurring() {
 function computeDecisionSplit(d) {
   const total = d.auto_amount || 0;
   const t = d.split_type || '平均分攤';
+  const payer = d.payer || '千婷';
+  let sv;
   if (t==='平均分攤') {
-    const each = Math.ceil(total/3);
-    return {千婷:each, 士德:each, 立德:each};
+    const each = Math.floor(total/3);
+    sv = {千婷:each, 士德:each, 立德:each};
   } else if (t==='自訂比例') {
     const r = {千婷:d.ratio_千婷||1, 士德:d.ratio_士德||1, 立德:d.ratio_立德||1};
     const s = r.千婷+r.士德+r.立德;
-    return {千婷:Math.ceil(total*(r.千婷/s)), 士德:Math.ceil(total*(r.士德/s)), 立德:Math.ceil(total*(r.立德/s))};
+    sv = {千婷:Math.floor(total*(r.千婷/s)), 士德:Math.floor(total*(r.士德/s)), 立德:Math.floor(total*(r.立德/s))};
   } else {
     return {千婷:d.split_千婷||0, 士德:d.split_士德||0, 立德:d.split_立德||0};
   }
+  // 進位誤差由代墊者吸收
+  const diff = total - (sv.千婷+sv.士德+sv.立德);
+  if (diff!==0 && sv[payer]!==undefined) sv[payer] += diff;
+  return sv;
 }
 
 // 簡易操作日誌（暫存在記憶體與 console，待後續審計功能啟用後寫入資料庫）
@@ -1084,17 +1090,20 @@ function onSplitTypeChange() {
 function recalcSplit() {
   const total = parseInt(document.getElementById('exp-amount').value)||0;
   const t = document.getElementById('exp-split-type').value;
+  const payer = document.getElementById('exp-payer').value;
   const prev = document.getElementById('split-preview');
   if (!total||!t) { prev.style.display='none'; return; }
   if (t==='avg') {
-    const each = Math.ceil(total/3);
+    const each = Math.floor(total/3);
     splitVals = {千婷:each,士德:each,立德:each};
+    absorbRemainder(total, payer);
     updatePreview(); prev.style.display='block';
   } else if (t==='ratio') {
     const r = {千婷:parseFloat(document.getElementById('ratio-千婷').value)||0, 士德:parseFloat(document.getElementById('ratio-士德').value)||0, 立德:parseFloat(document.getElementById('ratio-立德').value)||0};
     const s = r.千婷+r.士德+r.立德;
     if (s<=0) { prev.style.display='none'; return; }
-    splitVals = {千婷:Math.ceil(total*(r.千婷/s)), 士德:Math.ceil(total*(r.士德/s)), 立德:Math.ceil(total*(r.立德/s))};
+    splitVals = {千婷:Math.floor(total*(r.千婷/s)), 士德:Math.floor(total*(r.士德/s)), 立德:Math.floor(total*(r.立德/s))};
+    absorbRemainder(total, payer);
     updatePreview(); prev.style.display='block';
   } else if (t==='custom') {
     const c = {千婷:parseInt(document.getElementById('custom-千婷').value)||0, 士德:parseInt(document.getElementById('custom-士德').value)||0, 立德:parseInt(document.getElementById('custom-立德').value)||0};
@@ -1105,6 +1114,15 @@ function recalcSplit() {
     msg.className='validation '+(csum===total?'v-ok':'v-err');
     msg.textContent = csum===total ? `✓ 合計 ${fmt(csum)} = 總金額` : `合計 ${fmt(csum)} ≠ 總金額 ${fmt(total)}`;
     updatePreview(); prev.style.display='block';
+  }
+}
+// 進位誤差由代墊者吸收，讓三人分攤加總剛好等於總額
+function absorbRemainder(total, payer) {
+  const sum = splitVals.千婷+splitVals.士德+splitVals.立德;
+  const diff = total - sum; // 可能為正或負
+  if (diff!==0) {
+    const absorber = (payer && splitVals[payer]!==undefined) ? payer : '千婷';
+    splitVals[absorber] += diff;
   }
 }
 function updatePreview() {
@@ -1567,15 +1585,14 @@ async function openProjectDetail(projectId) {
   } else {
     const pendBadge = r => r.confirmed===false ? '<span class="tag" style="background:var(--bg3);color:var(--text2)">⏳ 待確認</span>' : '';
     html += `<div class="table-wrap desktop-only"><table>
-      <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th>備註</th><th></th></tr></thead>
+      <thead><tr><th>日期</th><th>付款人</th><th>收款人</th><th>金額</th><th></th></tr></thead>
       <tbody>${reps.map(r=>{
         const locked = isLocked(r);
         const actBtns = (isArch||locked) ? '<span style="color:var(--text3)">🔒</span>'
           : `<button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditRepayment('${r.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepaymentProj('${r.id}','${projectId}')">🗑</button>`;
         return `<tr ${r.confirmed===false?'style="opacity:0.6"':''}>
-          <td>${r.date}</td><td>${r.from_member}</td><td>${r.to_member}</td>
+          <td style="white-space:nowrap">${shortDate(r.date)}</td><td>${r.from_member}</td><td>${r.to_member}</td>
           <td style="font-weight:700;color:var(--mint-dark)">${fmt(r.amount)} ${pendBadge(r)}</td>
-          <td style="color:var(--text2);font-size:12px">${r.note||'—'}</td>
           <td style="white-space:nowrap">${actBtns}</td>
         </tr>`;}).join('')}</tbody>
     </table></div>`;
@@ -1823,9 +1840,8 @@ async function loadHistory() {
       const actBtns = locked ? '<span style="color:var(--text3)">🔒</span>'
         : `<button class="del-btn ${isAdmin?'':'hidden'}" onclick="openEditRepayment('${r.id}')">✏️</button><button class="del-btn ${isAdmin?'':'hidden'}" onclick="delRepayment('${r.id}')">🗑</button>`;
       return `<tr ${r.confirmed===false?'style="opacity:0.6"':''}>
-      <td>${r.date}</td><td>${r.from_member}</td><td>${r.to_member}</td>
+      <td style="white-space:nowrap">${shortDate(r.date)}</td><td>${r.from_member}</td><td>${r.to_member}</td>
       <td style="font-weight:700;color:var(--mint-dark)">${fmt(r.amount)} ${pendBadge(r)}</td>
-      <td style="color:var(--text2);font-size:12px">${r.note||'—'}</td>
       <td style="white-space:nowrap">${actBtns}</td>
     </tr>`;}).join('');
     repCards.innerHTML=reps.map(r=>{
@@ -1924,9 +1940,13 @@ function edRecalc() {
   const t = document.getElementById('ed-split-type').value;
   if (t==='平均分攤') {
     const total = parseInt(document.getElementById('ed-amount').value)||0;
-    const each = Math.ceil(total/3);
-    ['千婷','士德','立德'].forEach(m=>{ const el=document.getElementById('ed-s-'+m); if(el) el.value=each; });
-    editContext.splitVals = {千婷:each,士德:each,立德:each};
+    const payer = document.getElementById('ed-payer').value;
+    const each = Math.floor(total/3);
+    const sv = {千婷:each,士德:each,立德:each};
+    const diff = total - each*3;
+    if (diff!==0 && sv[payer]!==undefined) sv[payer]+=diff;
+    ['千婷','士德','立德'].forEach(m=>{ const el=document.getElementById('ed-s-'+m); if(el) el.value=sv[m]; });
+    editContext.splitVals = sv;
   }
 }
 function edValidate() {
